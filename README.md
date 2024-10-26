@@ -1,3 +1,17 @@
+# fsrs-rs-nodejs
+
+nodejs binding for fsrs-rs
+
+## Development
+
+```
+yarn install
+npm run build
+find examples/ -exec node {} \;
+```
+
+---
+
 # `@napi-rs/package-template`
 
 ![https://github.com/napi-rs/package-template/actions](https://github.com/napi-rs/package-template/workflows/CI/badge.svg)
