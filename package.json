@@ -1,9 +1,9 @@
 {
-  "name": "@napi-rs/package-template",
+  "name": "fsrs-rs-nodejs",
   "version": "1.0.0",
-  "description": "Template project for writing node package with napi-rs",
+  "description": "nodejs binding for fsrs-rs",
   "main": "index.js",
-  "repository": "git@github.com:napi-rs/package-template.git",
+  "repository": "https://github.com/open-spaced-repetition/rs-fsrs-nodejs",
   "license": "MIT",
   "keywords": [
     "napi-rs",
@@ -18,7 +18,7 @@
     "index.js"
   ],
   "napi": {
-    "name": "package-template",
+    "name": "fsrs-rs-nodejs",
     "triples": {
       "defaults": true,
       "additional": [
