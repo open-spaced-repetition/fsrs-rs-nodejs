@@ -198,8 +198,8 @@ function convertToFSRSItem(history) {
 function dateDiffInDays(a, b) {
   const _MS_PER_DAY = 1000 * 60 * 60 * 24;
   // Discard the time and time-zone information.
-  const utc1 = Date.UTC(a.getUTCFullYear(), a.getUTCMonth() + 1, a.getUTCDate());
-  const utc2 = Date.UTC(b.getUTCFullYear(), b.getUTCMonth() + 1, b.getUTCDate());
+  const utc1 = Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate());
+  const utc2 = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate());
 
   return Math.floor((utc2 - utc1) / _MS_PER_DAY)
 }
