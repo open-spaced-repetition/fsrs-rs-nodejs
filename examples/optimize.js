@@ -188,11 +188,18 @@ function convertToFSRSItem(history) {
   return items.filter((item) => item.longTermReviewCnt() > 0)
 }
 
+/**
+ * Calculates the difference in days between two dates.
+ *
+ * @param {Date} a - The first date.
+ * @param {Date} b - The second date.
+ * @returns {number} The number of days between the two dates.
+ */
 function dateDiffInDays(a, b) {
   const _MS_PER_DAY = 1000 * 60 * 60 * 24;
   // Discard the time and time-zone information.
-  const utc1 = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
-  const utc2 = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  const utc1 = Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate());
+  const utc2 = Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate());
 
   return Math.floor((utc2 - utc1) / _MS_PER_DAY)
 }
