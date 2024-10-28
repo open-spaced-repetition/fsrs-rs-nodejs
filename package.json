@@ -1,6 +1,6 @@
 {
   "name": "fsrs-rs-nodejs",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "nodejs binding for fsrs-rs",
   "main": "index.js",
   "repository": "https://github.com/open-spaced-repetition/rs-fsrs-nodejs",
