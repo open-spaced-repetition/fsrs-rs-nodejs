@@ -1112,6 +1112,97 @@ __metadata:
   languageName: node
   linkType: hard
 
+"fsrs-rs-nodejs-android-arm-eabi@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-android-arm-eabi@npm:0.5.0"
+  conditions: os=android & cpu=arm
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-android-arm64@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-android-arm64@npm:0.5.0"
+  conditions: os=android & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-darwin-arm64@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-darwin-arm64@npm:0.5.0"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-darwin-x64@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-darwin-x64@npm:0.5.0"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-freebsd-x64@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-freebsd-x64@npm:0.5.0"
+  conditions: os=freebsd & cpu=x64
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-linux-arm-gnueabihf@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-linux-arm-gnueabihf@npm:0.5.0"
+  conditions: os=linux & cpu=arm
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-linux-arm64-gnu@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-linux-arm64-gnu@npm:0.5.0"
+  conditions: os=linux & cpu=arm64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-linux-arm64-musl@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-linux-arm64-musl@npm:0.5.0"
+  conditions: os=linux & cpu=arm64 & libc=musl
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-linux-x64-gnu@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-linux-x64-gnu@npm:0.5.0"
+  conditions: os=linux & cpu=x64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-linux-x64-musl@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-linux-x64-musl@npm:0.5.0"
+  conditions: os=linux & cpu=x64 & libc=musl
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-win32-arm64-msvc@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-win32-arm64-msvc@npm:0.5.0"
+  conditions: os=win32 & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-win32-ia32-msvc@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-win32-ia32-msvc@npm:0.5.0"
+  conditions: os=win32 & cpu=ia32
+  languageName: node
+  linkType: hard
+
+"fsrs-rs-nodejs-win32-x64-msvc@npm:0.5.0":
+  version: 0.5.0
+  resolution: "fsrs-rs-nodejs-win32-x64-msvc@npm:0.5.0"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
 "fsrs-rs-nodejs@workspace:.":
   version: 0.0.0-use.local
   resolution: "fsrs-rs-nodejs@workspace:."
@@ -1122,6 +1213,19 @@ __metadata:
     "@taplo/cli": "npm:^0.7.0"
     ava: "npm:^6.1.3"
     chalk: "npm:^5.3.0"
+    fsrs-rs-nodejs-android-arm-eabi: "npm:0.5.0"
+    fsrs-rs-nodejs-android-arm64: "npm:0.5.0"
+    fsrs-rs-nodejs-darwin-arm64: "npm:0.5.0"
+    fsrs-rs-nodejs-darwin-x64: "npm:0.5.0"
+    fsrs-rs-nodejs-freebsd-x64: "npm:0.5.0"
+    fsrs-rs-nodejs-linux-arm-gnueabihf: "npm:0.5.0"
+    fsrs-rs-nodejs-linux-arm64-gnu: "npm:0.5.0"
+    fsrs-rs-nodejs-linux-arm64-musl: "npm:0.5.0"
+    fsrs-rs-nodejs-linux-x64-gnu: "npm:0.5.0"
+    fsrs-rs-nodejs-linux-x64-musl: "npm:0.5.0"
+    fsrs-rs-nodejs-win32-arm64-msvc: "npm:0.5.0"
+    fsrs-rs-nodejs-win32-ia32-msvc: "npm:0.5.0"
+    fsrs-rs-nodejs-win32-x64-msvc: "npm:0.5.0"
     husky: "npm:^9.0.11"
     lint-staged: "npm:^15.2.7"
     npm-run-all2: "npm:^7.0.0"
@@ -1129,6 +1233,33 @@ __metadata:
     prettier: "npm:^3.3.3"
     tinybench: "npm:^2.8.0"
     typescript: "npm:^5.5.3"
+  dependenciesMeta:
+    fsrs-rs-nodejs-android-arm-eabi:
+      optional: true
+    fsrs-rs-nodejs-android-arm64:
+      optional: true
+    fsrs-rs-nodejs-darwin-arm64:
+      optional: true
+    fsrs-rs-nodejs-darwin-x64:
+      optional: true
+    fsrs-rs-nodejs-freebsd-x64:
+      optional: true
+    fsrs-rs-nodejs-linux-arm-gnueabihf:
+      optional: true
+    fsrs-rs-nodejs-linux-arm64-gnu:
+      optional: true
+    fsrs-rs-nodejs-linux-arm64-musl:
+      optional: true
+    fsrs-rs-nodejs-linux-x64-gnu:
+      optional: true
+    fsrs-rs-nodejs-linux-x64-musl:
+      optional: true
+    fsrs-rs-nodejs-win32-arm64-msvc:
+      optional: true
+    fsrs-rs-nodejs-win32-ia32-msvc:
+      optional: true
+    fsrs-rs-nodejs-win32-x64-msvc:
+      optional: true
   languageName: unknown
   linkType: soft
 
