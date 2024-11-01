@@ -81,7 +81,7 @@ impl FSRS {
     MemoryState(
       self
         .0
-        .memory_state(item.0.clone(), starting_state.map(|x| x.0.clone()))
+        .memory_state(item.0.clone(), starting_state.map(|x| x.0))
         .unwrap(),
     )
   }
@@ -129,7 +129,7 @@ impl FSRSItem {
       .0
       .reviews
       .iter()
-      .map(|x| FSRSReview(x.clone()))
+      .map(|x| FSRSReview(*x))
       .collect()
   }
 
@@ -204,7 +204,7 @@ pub struct ItemState(fsrs::ItemState);
 impl ItemState {
   #[napi(getter)]
   pub fn memory(&self) -> MemoryState {
-    MemoryState(self.0.memory.clone())
+    MemoryState(self.0.memory)
   }
   #[napi(getter)]
   pub fn interval(&self) -> f32 {
