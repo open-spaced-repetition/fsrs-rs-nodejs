@@ -125,12 +125,7 @@ impl FSRSItem {
 
   #[napi(getter)]
   pub fn reviews(&self) -> Vec<FSRSReview> {
-    self
-      .0
-      .reviews
-      .iter()
-      .map(|x| FSRSReview(*x))
-      .collect()
+    self.0.reviews.iter().map(|x| FSRSReview(*x)).collect()
   }
 
   #[napi]
