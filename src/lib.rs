@@ -34,6 +34,57 @@ impl FSRS {
       .compute_parameters(train_set.iter().map(|x| x.0.clone()).collect(), None)
       .unwrap()
   }
+
+  #[napi]
+  pub fn next_states(
+    &self,
+    current_memory_state: Option<&MemoryState>,
+    desired_retention: f64,
+    days_elapsed: u32,
+  ) -> NextStates {
+    NextStates(
+      self
+        .0
+        .next_states(
+          current_memory_state.map(|x| x.0),
+          desired_retention as f32,
+          days_elapsed,
+        )
+        .unwrap(),
+    )
+  }
+
+  #[napi]
+  pub fn benchmark(&self, train_set: Vec<&FSRSItem>) -> Vec<f32> {
+    self
+      .0
+      .benchmark(train_set.iter().map(|x| x.0.clone()).collect())
+  }
+
+  #[napi]
+  pub fn memory_state_from_sm2(
+    &self,
+    ease_factor: f64,
+    interval: f64,
+    sm2_retention: f64,
+  ) -> MemoryState {
+    MemoryState(
+      self
+        .0
+        .memory_state_from_sm2(ease_factor as f32, interval as f32, sm2_retention as f32)
+        .unwrap(),
+    )
+  }
+
+  #[napi]
+  pub fn memory_state(&self, item: &FSRSItem, starting_state: Option<&MemoryState>) -> MemoryState {
+    MemoryState(
+      self
+        .0
+        .memory_state(item.0.clone(), starting_state.map(|x| x.0.clone()))
+        .unwrap(),
+    )
+  }
 }
 
 #[napi(js_name = "FSRSReview")]
@@ -45,6 +96,18 @@ impl FSRSReview {
   #[napi(constructor)]
   pub fn new(rating: u32, delta_t: u32) -> Self {
     Self(fsrs::FSRSReview { rating, delta_t })
+  }
+  #[napi(getter)]
+  pub fn rating(&self) -> u32 {
+    self.0.rating
+  }
+  #[napi(getter)]
+  pub fn delta_t(&self) -> u32 {
+    self.0.delta_t
+  }
+  #[napi(js_name = "toJSON")]
+  pub fn to_json(&self) -> String {
+    format!("{:?}", self.0)
   }
 }
 
@@ -59,8 +122,96 @@ impl FSRSItem {
       reviews: reviews.iter().map(|x| x.0).collect(),
     })
   }
+
+  #[napi(getter)]
+  pub fn reviews(&self) -> Vec<FSRSReview> {
+    self
+      .0
+      .reviews
+      .iter()
+      .map(|x| FSRSReview(x.clone()))
+      .collect()
+  }
+
   #[napi]
   pub fn long_term_review_cnt(&self) -> u32 {
     self.0.long_term_review_cnt() as u32
+  }
+
+  #[napi(js_name = "toJSON")]
+  pub fn to_json(&self) -> String {
+    format!("{:?}", self.0)
+  }
+}
+
+#[napi(js_name = "MemoryState")]
+#[derive(Debug)]
+pub struct MemoryState(fsrs::MemoryState);
+#[napi]
+impl MemoryState {
+  #[napi(constructor)]
+  pub fn new(stability: f64, difficulty: f64) -> Self {
+    Self(fsrs::MemoryState {
+      stability: stability as f32,
+      difficulty: difficulty as f32,
+    })
+  }
+  #[napi(getter)]
+  pub fn stability(&self) -> f64 {
+    self.0.stability as f64
+  }
+  #[napi(getter)]
+  pub fn difficulty(&self) -> f64 {
+    self.0.difficulty as f64
+  }
+  #[napi(js_name = "toJSON")]
+  pub fn to_json(&self) -> String {
+    format!("{:?}", self.0)
+  }
+}
+
+#[napi(js_name = "NextStates")]
+#[derive(Debug)]
+pub struct NextStates(fsrs::NextStates);
+#[napi]
+impl NextStates {
+  #[napi(getter)]
+  pub fn hard(&self) -> ItemState {
+    ItemState(self.0.hard.clone())
+  }
+  #[napi(getter)]
+  pub fn good(&self) -> ItemState {
+    ItemState(self.0.good.clone())
+  }
+  #[napi(getter)]
+  pub fn easy(&self) -> ItemState {
+    ItemState(self.0.easy.clone())
+  }
+  #[napi(getter)]
+  pub fn again(&self) -> ItemState {
+    ItemState(self.0.again.clone())
+  }
+  #[napi(js_name = "toJSON")]
+  pub fn to_json(&self) -> String {
+    format!("{:?}", self.0)
+  }
+}
+
+#[napi(js_name = "ItemState")]
+#[derive(Debug)]
+pub struct ItemState(fsrs::ItemState);
+#[napi]
+impl ItemState {
+  #[napi(getter)]
+  pub fn memory(&self) -> MemoryState {
+    MemoryState(self.0.memory.clone())
+  }
+  #[napi(getter)]
+  pub fn interval(&self) -> f32 {
+    self.0.interval
+  }
+  #[napi(js_name = "toJSON")]
+  pub fn to_json(&self) -> String {
+    format!("{:?}", self.0)
   }
 }
