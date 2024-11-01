@@ -14,11 +14,38 @@ export const DEFAULT_PARAMETERS: number[]
 export declare class FSRS {
   constructor()
   computeParameters(trainSet: Array<FSRSItem>): Array<number>
+  nextStates(currentMemoryState: MemoryState | undefined | null, desiredRetention: number, daysElapsed: number): NextStates
+  benchmark(trainSet: Array<FSRSItem>): Array<number>
+  memoryStateFromSm2(easeFactor: number, interval: number, sm2Retention: number): MemoryState
+  memoryState(item: FSRSItem, startingState?: MemoryState | undefined | null): MemoryState
 }
 export declare class FSRSReview {
   constructor(rating: number, deltaT: number)
+  get rating(): number
+  get deltaT(): number
+  toJSON(): string
 }
 export declare class FSRSItem {
   constructor(reviews: Array<FSRSReview>)
+  get reviews(): Array<FSRSReview>
   longTermReviewCnt(): number
+  toJSON(): string
+}
+export declare class MemoryState {
+  constructor(stability: number, difficulty: number)
+  get stability(): number
+  get difficulty(): number
+  toJSON(): string
+}
+export declare class NextStates {
+  get hard(): ItemState
+  get good(): ItemState
+  get easy(): ItemState
+  get again(): ItemState
+  toJSON(): string
+}
+export declare class ItemState {
+  get memory(): MemoryState
+  get interval(): number
+  toJSON(): string
 }
