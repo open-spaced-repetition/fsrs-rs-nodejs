@@ -3,7 +3,10 @@
   "version": "0.5.0",
   "description": "nodejs binding for fsrs-rs",
   "main": "index.js",
-  "repository": "https://github.com/open-spaced-repetition/rs-fsrs-nodejs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/open-spaced-repetition/rs-fsrs-nodejs.git"
+  },
   "license": "MIT",
   "keywords": [
     "napi-rs",
@@ -104,5 +107,20 @@
     "singleQuote": true,
     "arrowParens": "always"
   },
-  "packageManager": "yarn@4.5.1"
+  "packageManager": "yarn@4.5.1",
+  "optionalDependencies": {
+    "fsrs-rs-nodejs-android-arm-eabi": "0.5.0",
+    "fsrs-rs-nodejs-android-arm64": "0.5.0",
+    "fsrs-rs-nodejs-darwin-arm64": "0.5.0",
+    "fsrs-rs-nodejs-darwin-x64": "0.5.0",
+    "fsrs-rs-nodejs-freebsd-x64": "0.5.0",
+    "fsrs-rs-nodejs-linux-arm-gnueabihf": "0.5.0",
+    "fsrs-rs-nodejs-linux-arm64-gnu": "0.5.0",
+    "fsrs-rs-nodejs-linux-arm64-musl": "0.5.0",
+    "fsrs-rs-nodejs-linux-x64-gnu": "0.5.0",
+    "fsrs-rs-nodejs-linux-x64-musl": "0.5.0",
+    "fsrs-rs-nodejs-win32-arm64-msvc": "0.5.0",
+    "fsrs-rs-nodejs-win32-ia32-msvc": "0.5.0",
+    "fsrs-rs-nodejs-win32-x64-msvc": "0.5.0"
+  }
 }
