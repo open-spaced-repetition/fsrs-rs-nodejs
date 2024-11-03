@@ -1,15 +1,21 @@
 const fs = require('fs');
-const csv = require('csv-parse/sync');
+const csv = require("@fast-csv/parse");
 const { FSRSItem, FSRSReview, FSRS } = require('../index.js');
 
-function main() {
+async function main() {
   // read revlog.csv
   // please download from
   // https://github.com/open-spaced-repetition/fsrs-rs/files/15046782/revlog.csv
-  const content = fs.readFileSync('revlog.csv');
-  const records = csv.parse(content, {
-    columns: true,
-    skip_empty_lines: true
+  const content = fs.readFileSync('./revlog.csv');
+  const records = await new Promise((resolve, reject) => {
+    const results = [];
+    csv.parseString(content, {
+      headers: true,
+      skipEmptyLines: true
+    })
+      .on('data', row => results.push(row))
+      .on('error', error => reject(error))
+      .on('end', () => resolve(results));
   });
 
   console.log(`revlogs.len() = ${records.length}`)
