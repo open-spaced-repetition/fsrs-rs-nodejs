@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('fs').promises;
 const csv = require("@fast-csv/parse");
 const { FSRSItem, FSRSReview, FSRS } = require('../index.js');
 
@@ -6,7 +6,7 @@ async function main() {
   // read revlog.csv
   // please download from
   // https://github.com/open-spaced-repetition/fsrs-rs/files/15046782/revlog.csv
-  const content = fs.readFileSync('./revlog.csv');
+  const content = await fs.readFile('./revlog.csv');
   const records = await new Promise((resolve, reject) => {
     const results = [];
     csv.parseString(content, {
