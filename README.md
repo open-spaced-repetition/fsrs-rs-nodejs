@@ -10,6 +10,9 @@ npm run build
 find examples/ -exec node {} \;
 ```
 
+Note: running `examples/train_csv.js` requires `revlog.csv` file, please download from
+[revlog.csv](https://github.com/open-spaced-repetition/fsrs-rs/files/15046782/revlog.csv). Then put it in the root folder of this repository.
+
 ---
 
 # `@napi-rs/package-template`
