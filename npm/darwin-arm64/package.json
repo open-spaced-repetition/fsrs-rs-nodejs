@@ -28,5 +28,8 @@
     "registry": "https://registry.npmjs.org/",
     "access": "public"
   },
-  "repository": "https://github.com/open-spaced-repetition/fsrs-rs-nodejs"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/open-spaced-repetition/rs-fsrs-nodejs.git"
+  }
 }
