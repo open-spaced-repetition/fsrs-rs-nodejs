@@ -1,4 +1,5 @@
 #![deny(clippy::all)]
+use napi::JsNumber;
 // https://github.com/rust-lang/rust-analyzer/issues/17429
 use napi_derive::napi;
 
@@ -17,14 +18,24 @@ pub const DEFAULT_PARAMETERS: [f32; 19] = [
 ];
 impl Default for FSRS {
   fn default() -> Self {
-    Self::new()
+    Self::new(None)
   }
 }
 #[napi]
 impl FSRS {
   #[napi(constructor)]
-  pub fn new() -> Self {
-    Self(fsrs::FSRS::new(Some(&[])).unwrap())
+  pub fn new(parameters: Option<Vec<JsNumber>>) -> Self {
+    let params: [f32; 19] = match parameters {
+      Some(parameters) => {
+        let mut array = [0.0; 19];
+        for (i, value) in parameters.iter().enumerate().take(19) {
+          array[i] = value.get_double().unwrap_or(0.0) as f32;
+        }
+        array
+      }
+      None => DEFAULT_PARAMETERS,
+    };
+    Self(fsrs::FSRS::new(Some(&params)).unwrap())
   }
 
   #[napi]
