@@ -42,7 +42,7 @@ impl FSRS {
   pub fn compute_parameters(&self, train_set: Vec<&FSRSItem>) -> Vec<f32> {
     self
       .0
-      .compute_parameters(train_set.iter().map(|x| x.0.clone()).collect(), None)
+      .compute_parameters(train_set.iter().map(|x| x.0.clone()).collect(), None, true)
       .unwrap()
   }
 
@@ -69,7 +69,7 @@ impl FSRS {
   pub fn benchmark(&self, train_set: Vec<&FSRSItem>) -> Vec<f32> {
     self
       .0
-      .benchmark(train_set.iter().map(|x| x.0.clone()).collect())
+      .benchmark(train_set.iter().map(|x| x.0.clone()).collect(), true)
   }
 
   #[napi]

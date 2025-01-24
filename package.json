@@ -1,6 +1,6 @@
 {
   "name": "fsrs-rs-nodejs",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "nodejs binding for fsrs-rs",
   "main": "index.js",
   "repository": {
