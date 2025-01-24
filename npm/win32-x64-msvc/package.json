@@ -30,6 +30,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/open-spaced-repetition/rs-fsrs-nodejs.git"
+    "url": "https://github.com/open-spaced-repetition/rs-fsrs-nodejs"
   }
 }
