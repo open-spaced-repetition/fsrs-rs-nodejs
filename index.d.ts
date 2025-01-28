@@ -12,7 +12,7 @@
  */
 export const DEFAULT_PARAMETERS: number[]
 export declare class FSRS {
-  constructor()
+  constructor(parameters?: Array<number> | undefined | null)
   computeParameters(trainSet: Array<FSRSItem>): Array<number>
   nextStates(currentMemoryState: MemoryState | undefined | null, desiredRetention: number, daysElapsed: number): NextStates
   benchmark(trainSet: Array<FSRSItem>): Array<number>

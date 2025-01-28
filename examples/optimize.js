@@ -1,4 +1,4 @@
-import { FSRSItem, FSRSReview, DEFAULT_PARAMETERS, FSRS } from '../index'
+import { FSRSItem, FSRSReview, DEFAULT_PARAMETERS, FSRS } from '../index.js'
 
 function main() {
   // Create review histories for cards
