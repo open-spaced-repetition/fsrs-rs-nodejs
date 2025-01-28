@@ -1,4 +1,4 @@
-import { FSRS, FSRSItem, FSRSReview } from '../index'
+import { FSRS, FSRSItem, FSRSReview } from '../index.js'
 
 function migrateWithFullHistory() {
   // Create a new FSRS model
