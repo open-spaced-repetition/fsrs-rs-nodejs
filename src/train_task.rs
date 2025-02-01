@@ -68,7 +68,7 @@ impl Task for ComputeParametersTask {
         let percent = if total == 0 {
           0.0
         } else {
-          (current as f64 / total as f64) as f64
+          current as f64 / total as f64
         };
 
         // Call JS callback if you want once per second or whenever progress changes
