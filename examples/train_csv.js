@@ -2,6 +2,14 @@ import { promises as fs } from 'fs'
 import { parseString } from '@fast-csv/parse'
 import { FSRSItem, FSRSReview, FSRS } from '../index.js'
 
+function progress(err, progressValue) {
+  if (err) {
+    console.error('Progress callback error:', err)
+    return
+  }
+  console.log('progress value', progressValue)
+}
+
 async function main() {
   // read revlog.csv
   // please download from
@@ -30,7 +38,7 @@ async function main() {
 
   // create FSRS instance and optimize
   const fsrs = new FSRS(null)
-  const optimizedParameters = fsrs.computeParameters(fsrsItems)
+  const optimizedParameters = await fsrs.computeParameters(fsrsItems, true, progress, 1000/** 1s */)
   console.log('optimized parameters:', optimizedParameters)
   console.timeEnd('full training time')
 }

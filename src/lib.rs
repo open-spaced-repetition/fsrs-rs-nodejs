@@ -1,11 +1,18 @@
 #![deny(clippy::all)]
+use napi::bindgen_prelude::*;
 use napi::JsNumber;
+use std::sync::{Arc, Mutex};
+
+mod train_task;
+use train_task::{ComputeParametersTask, ProgressData};
+
 // https://github.com/rust-lang/rust-analyzer/issues/17429
 use napi_derive::napi;
 
 #[napi(js_name = "FSRS")]
 #[derive(Debug)]
-pub struct FSRS(fsrs::FSRS);
+pub struct FSRS(Arc<Mutex<fsrs::FSRS>>);
+
 #[napi]
 /// directly use fsrs::DEFAULT_PARAMETERS will cause error.
 /// referencing statics in constants is unstable
@@ -21,6 +28,7 @@ impl Default for FSRS {
     Self::new(None)
   }
 }
+
 #[napi]
 impl FSRS {
   #[napi(constructor)]
@@ -35,15 +43,57 @@ impl FSRS {
       }
       None => DEFAULT_PARAMETERS,
     };
-    Self(fsrs::FSRS::new(Some(&params)).unwrap())
+    Self(Arc::new(Mutex::new(
+      fsrs::FSRS::new(Some(&params)).unwrap(),
+    )))
   }
 
-  #[napi]
-  pub fn compute_parameters(&self, train_set: Vec<&FSRSItem>) -> Vec<f32> {
-    self
-      .0
-      .compute_parameters(train_set.iter().map(|x| x.0.clone()).collect(), None, true)
-      .unwrap()
+  #[napi(ts_return_type = "Promise<Array<number>>")]
+  pub fn compute_parameters(
+    &self,
+    train_set: Vec<&FSRSItem>,
+    enable_short_term: bool,
+    #[napi(
+      ts_arg_type = "(err: null | Error, value: { current: number, total: number, percent: number }) => void"
+    )]
+    progress_js_fn: Option<JsFunction>,
+    #[napi(ts_arg_type = "number")] timeout: Option<JsNumber>,
+  ) -> Result<AsyncTask<ComputeParametersTask>> {
+    // Convert your `JS` training items to owned `fsrs::FSRSItem`
+    let train_data = train_set
+      .into_iter()
+      .map(|item| item.0.clone())
+      .collect::<Vec<_>>();
+
+    // Turn `JsFunction` into a `ThreadsafeFunction`
+    let fn_form_js = if let Some(callback) = progress_js_fn {
+      Some(callback.create_threadsafe_function(0, |ctx| {
+        let progress_data: ProgressData = ctx.value;
+        let env = ctx.env;
+        let current = env.create_uint32(progress_data.current as u32)?;
+        let total = env.create_uint32(progress_data.total as u32)?;
+        let percent = env.create_double(progress_data.percent)?;
+        let mut progress_obj = env.create_object()?;
+        progress_obj.set_named_property("current", current)?;
+        progress_obj.set_named_property("total", total)?;
+        progress_obj.set_named_property("percent", percent)?;
+        Ok(vec![progress_obj])
+      })?)
+    } else {
+      None
+    };
+
+    let task = ComputeParametersTask {
+      model: Arc::clone(&self.0),
+      train_data,
+      enable_short_term,
+      progress_callback: fn_form_js,
+      progress_timeout: timeout
+        .map(|x| x.get_int64().unwrap_or(500) as u64)
+        .unwrap_or(500),
+    };
+
+    Ok(AsyncTask::new(task))
   }
 
   #[napi]
@@ -53,9 +103,9 @@ impl FSRS {
     desired_retention: f64,
     days_elapsed: u32,
   ) -> NextStates {
+    let locked_model = self.0.lock().unwrap();
     NextStates(
-      self
-        .0
+      locked_model
         .next_states(
           current_memory_state.map(|x| x.0),
           desired_retention as f32,
@@ -67,9 +117,8 @@ impl FSRS {
 
   #[napi]
   pub fn benchmark(&self, train_set: Vec<&FSRSItem>) -> Vec<f32> {
-    self
-      .0
-      .benchmark(train_set.iter().map(|x| x.0.clone()).collect(), true)
+    let locked_model = self.0.lock().unwrap();
+    locked_model.benchmark(train_set.iter().map(|x| x.0.clone()).collect(), true)
   }
 
   #[napi]
@@ -79,9 +128,9 @@ impl FSRS {
     interval: f64,
     sm2_retention: f64,
   ) -> MemoryState {
+    let locked_model = self.0.lock().unwrap();
     MemoryState(
-      self
-        .0
+      locked_model
         .memory_state_from_sm2(ease_factor as f32, interval as f32, sm2_retention as f32)
         .unwrap(),
     )
@@ -89,9 +138,9 @@ impl FSRS {
 
   #[napi]
   pub fn memory_state(&self, item: &FSRSItem, starting_state: Option<&MemoryState>) -> MemoryState {
+    let locked_model = self.0.lock().unwrap();
     MemoryState(
-      self
-        .0
+      locked_model
         .memory_state(item.0.clone(), starting_state.map(|x| x.0))
         .unwrap(),
     )
