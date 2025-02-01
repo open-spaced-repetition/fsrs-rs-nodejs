@@ -2,12 +2,12 @@ import { promises as fs } from 'fs'
 import { parseString } from '@fast-csv/parse'
 import { FSRSItem, FSRSReview, FSRS } from '../index.js'
 
-function progress(err, progressValue) {
+function progress(type, err, progressValue) {
   if (err) {
-    console.error('Progress callback error:', err)
+    console.error(`[${type}] Progress callback error:`, err)
     return
   }
-  console.log('progress value', progressValue)
+  console.log(`[${type}] progress value`, progressValue)
 }
 
 async function main() {
@@ -36,10 +36,15 @@ async function main() {
   const fsrsItems = Object.values(reviewsByCard).flatMap(convertToFSRSItem)
   console.log(`fsrs_items.len() = ${fsrsItems.length}`)
 
-  // create FSRS instance and optimize
-  const fsrs = new FSRS(null)
-  const optimizedParameters = await fsrs.computeParameters(fsrsItems, true, progress, 1000/** 1s */)
-  console.log('optimized parameters:', optimizedParameters)
+
+  async function computeParametersWrapper(enableShortTerm) {
+    // create FSRS instance and optimize
+    const fsrs = new FSRS(null)
+    let optimizedParameters = await fsrs.computeParameters(fsrsItems, enableShortTerm, progress.bind(null, enableShortTerm), 1000/** 1s */)
+    console.log(`[enableShortTerm=${enableShortTerm}]optimized parameters:`, optimizedParameters)
+  }
+  await Promise.all([computeParametersWrapper(true), computeParametersWrapper(false)])
+
   console.timeEnd('full training time')
 }
 
