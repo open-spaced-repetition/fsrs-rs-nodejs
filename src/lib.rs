@@ -1,5 +1,5 @@
 #![deny(clippy::all)]
-use napi::bindgen_prelude::*;
+use napi::bindgen_prelude::{AsyncTask, JsFunction, Result};
 use napi::JsNumber;
 use std::sync::{Arc, Mutex};
 
