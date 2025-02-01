@@ -2,12 +2,12 @@ import { promises as fs } from 'fs'
 import { parseString } from '@fast-csv/parse'
 import { FSRSItem, FSRSReview, FSRS } from '../index.js'
 
-function progress(type, err, progressValue) {
+function progress(enableShortTerm, err, progressValue) {
   if (err) {
-    console.error(`[${type}] Progress callback error:`, err)
+    console.error(`[enableShortTerm=${enableShortTerm}] Progress callback error:`, err)
     return
   }
-  console.log(`[${type}] progress value`, progressValue)
+  console.log(`[enableShortTerm=${enableShortTerm}] progress value`, progressValue)
 }
 
 async function main() {
