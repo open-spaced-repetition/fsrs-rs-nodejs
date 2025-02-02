@@ -13,7 +13,7 @@
 export const DEFAULT_PARAMETERS: number[]
 export declare class FSRS {
   constructor(parameters?: Array<number> | undefined | null)
-  computeParameters(trainSet: Array<FSRSItem>): Array<number>
+  computeParameters(trainSet: Array<FSRSItem>, enableShortTerm: boolean, progressJsFn?: (err: null | Error, value: { current: number, total: number, percent: number }) => void, timeout?: number): Promise<Array<number>>
   nextStates(currentMemoryState: MemoryState | undefined | null, desiredRetention: number, daysElapsed: number): NextStates
   benchmark(trainSet: Array<FSRSItem>): Array<number>
   memoryStateFromSm2(easeFactor: number, interval: number, sm2Retention: number): MemoryState

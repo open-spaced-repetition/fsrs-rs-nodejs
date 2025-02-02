@@ -1,6 +1,15 @@
 import { FSRSItem, FSRSReview, DEFAULT_PARAMETERS, FSRS } from '../index.js'
 
-function main() {
+
+function progress(err, progressValue) {
+  if (err) {
+    console.error('Progress callback error:', err)
+    return
+  }
+  console.log('progress value', progressValue)
+}
+
+async function main() {
   // Create review histories for cards
   const reviewHistoriesOfCards = createReviewHistoriesForCards()
   // Convert review histories to FSRSItems
@@ -12,7 +21,7 @@ function main() {
   console.log('Default parameters:', DEFAULT_PARAMETERS)
 
   // Optimize the FSRS model using the created items
-  const optimizedParameters = fsrs.computeParameters(fsrsItems)
+  const optimizedParameters = await fsrs.computeParameters(fsrsItems, true, progress)
   console.log('Optimized parameters:', optimizedParameters)
 }
 

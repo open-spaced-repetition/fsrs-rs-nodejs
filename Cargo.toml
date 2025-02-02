@@ -11,8 +11,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 chrono      = "0.4.38"
-fsrs        = "2.0.2"
-napi        = "2"
+fsrs        = "2.0.3"
+napi        = { version = "2", features = ['async'] }
 napi-derive = "2"
 
 
