@@ -1,4 +1,3 @@
-//@ts-check
 import { promises as fs } from 'fs'
 import { parseString } from '@fast-csv/parse'
 import { FSRSItem, FSRSReview, FSRS } from '../index.js'
