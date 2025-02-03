@@ -1,6 +1,5 @@
 import { FSRSItem, FSRSReview, DEFAULT_PARAMETERS, FSRS } from '../index.js'
 
-
 function progress(err, progressValue) {
   if (err) {
     console.error('Progress callback error:', err)
