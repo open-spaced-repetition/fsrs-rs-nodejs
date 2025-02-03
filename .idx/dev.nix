@@ -17,6 +17,8 @@
     pkgs.yarn
     pkgs.fish
     pkgs.gcc
+    pkgs.curl
+    pkgs.wget
   ];
 
   # Sets environment variables in the workspace
@@ -54,6 +56,7 @@
         # npm-install = "npm install";
         rustup = "rustup default stable";
         yarn = "yarn";
+        csv = "wget https://github.com/open-spaced-repetition/fsrs-rs/files/15046782/revlog.csv";
       };
       # Runs when the workspace is (re)started
       onStart = {
@@ -61,6 +64,7 @@
         # watch-backend = "npm run watch-backend";
         rustup = "rustup default stable";
         yarn = "yarn";
+        csv = "wget https://github.com/open-spaced-repetition/fsrs-rs/files/15046782/revlog.csv";
       };
     };
   };
