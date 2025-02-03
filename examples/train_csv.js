@@ -1,3 +1,4 @@
+//@ts-check
 import { promises as fs } from 'fs'
 import { parseString } from '@fast-csv/parse'
 import { FSRSItem, FSRSReview, FSRS } from '../index.js'
@@ -36,11 +37,15 @@ async function main() {
   const fsrsItems = Object.values(reviewsByCard).flatMap(convertToFSRSItem)
   console.log(`fsrs_items.len() = ${fsrsItems.length}`)
 
-
   async function computeParametersWrapper(enableShortTerm) {
     // create FSRS instance and optimize
     const fsrs = new FSRS(null)
-    let optimizedParameters = await fsrs.computeParameters(fsrsItems, enableShortTerm, progress.bind(null, enableShortTerm), 1000/** 1s */)
+    let optimizedParameters = await fsrs.computeParameters(
+      fsrsItems,
+      enableShortTerm,
+      progress.bind(null, enableShortTerm),
+      1000 /** 1s */,
+    )
     console.log(`[enableShortTerm=${enableShortTerm}]optimized parameters:`, optimizedParameters)
   }
   await Promise.all([computeParametersWrapper(true), computeParametersWrapper(false)])

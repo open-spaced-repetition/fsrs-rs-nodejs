@@ -1,5 +1,5 @@
+//@ts-check
 import { FSRSItem, FSRSReview, DEFAULT_PARAMETERS, FSRS } from '../index.js'
-
 
 function progress(err, progressValue) {
   if (err) {

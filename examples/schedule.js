@@ -1,3 +1,4 @@
+//@ts-check
 import { FSRS, MemoryState, DEFAULT_PARAMETERS } from '../index.js'
 
 class Card {
