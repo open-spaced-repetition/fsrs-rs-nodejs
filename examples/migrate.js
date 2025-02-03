@@ -1,4 +1,3 @@
-//@ts-check
 import { FSRS, FSRSItem, FSRSReview } from '../index.js'
 
 function migrateWithFullHistory() {
