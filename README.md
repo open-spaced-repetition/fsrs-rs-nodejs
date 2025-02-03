@@ -2,6 +2,10 @@
 
 nodejs binding for fsrs-rs
 
+## Online development
+
+go to <https://idx.google.com/import>
+
 ## Development
 
 ```
