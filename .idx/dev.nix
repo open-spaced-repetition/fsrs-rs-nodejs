@@ -64,7 +64,7 @@
         # watch-backend = "npm run watch-backend";
         rustup = "rustup default stable";
         yarn = "yarn";
-        csv = "wget https://github.com/open-spaced-repetition/fsrs-rs/files/15046782/revlog.csv";
+        csv = "if [ ! -f revlog.csv ]; then wget https://github.com/open-spaced-repetition/fsrs-rs/files/15046782/revlog.csv; fi";
       };
     };
   };
