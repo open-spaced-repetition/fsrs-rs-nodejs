@@ -1,6 +1,6 @@
 # fsrs-rs-nodejs
 
-nodejs binding for fsrs-rs
+nodejs binding for [fsrs-rs](https://github.com/open-spaced-repetition/fsrs-rs)
 
 ## Online development
 
