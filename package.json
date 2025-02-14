@@ -7,7 +7,7 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/open-spaced-repetition/rs-fsrs-nodejs"
+    "url": "https://github.com/open-spaced-repetition/fsrs-rs-nodejs"
   },
   "exports": {
     ".": {
