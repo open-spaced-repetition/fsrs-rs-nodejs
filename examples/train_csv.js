@@ -19,7 +19,8 @@ async function main() {
     const results = []
     parseString(content, {
       headers: true,
-      skipEmptyLines: true,
+      ignoreEmpty: true,
+      trim: true,
     })
       .on('data', (row) => results.push(row))
       .on('error', (error) => reject(error))
