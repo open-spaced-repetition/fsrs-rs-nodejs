@@ -34,7 +34,10 @@ async function main() {
   const reviewsByCard = groupReviewsByCard(records)
 
   // convert to FSRSItems
-  const fsrsItems = Object.values(reviewsByCard).flatMap(convertToFSRSItem)
+  const fsrsItems = Object.values(reviewsByCard)
+    .map(removeRevlogBeforeLastLearning)
+    .filter((history) => history.length > 0)
+    .flatMap(convertToFSRSItem)
   console.log(`fsrs_items.len() = ${fsrsItems.length}`)
 
   async function computeParametersWrapper(enableShortTerm) {
@@ -53,6 +56,21 @@ async function main() {
   console.timeEnd('full training time')
 }
 
+function removeRevlogBeforeLastLearning(entries) {
+  const isLearningState = (entry) => entry[2 /** review_state */] === 1 /** Learning */
+
+  let lastLearningBlockStart = -1
+  for (let i = entries.length - 1; i >= 0; i--) {
+    if (isLearningState(entries[i])) {
+      lastLearningBlockStart = i
+    } else if (lastLearningBlockStart !== -1) {
+      break
+    }
+  }
+
+  return lastLearningBlockStart !== -1 ? entries.slice(lastLearningBlockStart) : []
+}
+
 function groupReviewsByCard(records) {
   const reviewsByCard = {}
 
@@ -67,11 +85,16 @@ function groupReviewsByCard(records) {
     // use review_rating as rating
     const timestamp = parseInt(record.review_time)
     const date = new Date(timestamp)
+
+    // convert to UTC+0
+    const curOffset = -Math.floor(date.getTimezoneOffset() / 60)
+    date.setTime(date.getTime() - curOffset * 60 * 60 * 1000)
     // convert to UTC+8 first
     date.setTime(date.getTime() + 8 * 60 * 60 * 1000)
+
     // then subtract 4 hours for next day cutoff
     date.setTime(date.getTime() - 4 * 60 * 60 * 1000)
-    reviewsByCard[cardId].push([date, parseInt(record.review_rating)])
+    reviewsByCard[cardId].push([date, parseInt(record.review_rating), parseInt(record.review_state)])
   })
 
   // ensure reviews for each card are sorted by time
