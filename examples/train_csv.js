@@ -57,7 +57,7 @@ async function main() {
 }
 
 function removeRevlogBeforeLastLearning(entries) {
-  const isLearningState = (entry) => entry[2 /** review_state */] === 1 /** Learning */
+  const isLearningState = (entry) => [0 /** New */, 1 /** Learning */].includes(entry[2 /** review_state */])
 
   let lastLearningBlockStart = -1
   for (let i = entries.length - 1; i >= 0; i--) {
