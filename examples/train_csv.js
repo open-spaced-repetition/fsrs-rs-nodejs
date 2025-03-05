@@ -86,9 +86,6 @@ function groupReviewsByCard(records) {
     const timestamp = parseInt(record.review_time)
     const date = new Date(timestamp)
 
-    // convert to UTC+0
-    const curOffset = -Math.floor(date.getTimezoneOffset() / 60)
-    date.setTime(date.getTime() - curOffset * 60 * 60 * 1000)
     // convert to UTC+8 first
     date.setTime(date.getTime() + 8 * 60 * 60 * 1000)
 
