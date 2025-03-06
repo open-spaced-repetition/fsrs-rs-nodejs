@@ -132,7 +132,7 @@ impl FSRS {
     let locked_model = self.0.lock().unwrap();
     let result = locked_model
       .evaluate(train_data, |_| true)
-      .unwrap();
+      .map_err(|e| napi::Error::from_reason(format!("FSRS evaluate failed: {}", e)))?;
     Ok(ModelEvaluation {
       log_loss: env.create_double(result.log_loss as f64)?,
       rmse_bins: env.create_double(result.rmse_bins as f64)?,
@@ -288,7 +288,6 @@ impl ItemState {
     format!("{:?}", self.0)
   }
 }
-
 
 #[napi(object)]
 pub struct ModelEvaluation {
