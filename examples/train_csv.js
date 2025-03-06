@@ -43,13 +43,17 @@ async function main() {
   async function computeParametersWrapper(enableShortTerm) {
     // create FSRS instance and optimize
     const fsrs = new FSRS(null)
-    let optimizedParameters = await fsrs.computeParameters(
+    const optimizedParameters = await fsrs.computeParameters(
       fsrsItems,
       enableShortTerm,
       progress.bind(null, enableShortTerm),
       1000 /** 1s */,
     )
     console.log(`[enableShortTerm=${enableShortTerm}]optimized parameters:`, optimizedParameters)
+    const model = new FSRS(optimizedParameters)
+
+    const metrics = model.evaluate(fsrsItems)
+    console.log(`[enableShortTerm=${enableShortTerm}]metrics:`, metrics)
   }
   await Promise.all([computeParametersWrapper(true), computeParametersWrapper(false)])
 
