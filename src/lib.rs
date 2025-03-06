@@ -131,7 +131,7 @@ impl FSRS {
 
     let locked_model = self.0.lock().unwrap();
     let result = locked_model
-      .evaluate(train_data.clone(), |_| true)
+      .evaluate(train_data, |_| true)
       .unwrap();
     Ok(ModelEvaluation {
       log_loss: env.create_double(result.log_loss as f64)?,
