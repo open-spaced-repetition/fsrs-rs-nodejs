@@ -1,6 +1,6 @@
 #![deny(clippy::all)]
 use napi::bindgen_prelude::{AsyncTask, JsFunction, Result};
-use napi::JsNumber;
+use napi::{Env, JsNumber};
 use std::sync::{Arc, Mutex};
 
 mod train_task;
@@ -119,6 +119,24 @@ impl FSRS {
   pub fn benchmark(&self, train_set: Vec<&FSRSItem>) -> Vec<f32> {
     let locked_model = self.0.lock().unwrap();
     locked_model.benchmark(train_set.iter().map(|x| x.0.clone()).collect(), true)
+  }
+
+  #[napi]
+  pub fn evaluate(&self, env: Env, train_set: Vec<&FSRSItem>) -> Result<ModelEvaluation> {
+    // Convert your `JS` training items to owned `fsrs::FSRSItem`
+    let train_data = train_set
+      .into_iter()
+      .map(|item| item.0.clone())
+      .collect::<Vec<_>>();
+
+    let locked_model = self.0.lock().unwrap();
+    let result = locked_model
+      .evaluate(train_data, |_| true)
+      .map_err(|e| napi::Error::from_reason(format!("FSRS evaluate failed: {}", e)))?;
+    Ok(ModelEvaluation {
+      log_loss: env.create_double(result.log_loss as f64)?,
+      rmse_bins: env.create_double(result.rmse_bins as f64)?,
+    })
   }
 
   #[napi]
@@ -269,4 +287,10 @@ impl ItemState {
   pub fn to_json(&self) -> String {
     format!("{:?}", self.0)
   }
+}
+
+#[napi(object)]
+pub struct ModelEvaluation {
+  pub log_loss: JsNumber,
+  pub rmse_bins: JsNumber,
 }
