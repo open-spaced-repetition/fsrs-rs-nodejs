@@ -116,9 +116,12 @@ impl FSRS {
   }
 
   #[napi]
-  pub fn benchmark(&self, train_set: Vec<&FSRSItem>) -> Vec<f32> {
+  pub fn benchmark(&self, train_set: Vec<&FSRSItem>, enable_short_term: bool) -> Vec<f32> {
     let locked_model = self.0.lock().unwrap();
-    locked_model.benchmark(train_set.iter().map(|x| x.0.clone()).collect(), true)
+    locked_model.benchmark(
+      train_set.iter().map(|x| x.0.clone()).collect(),
+      enable_short_term,
+    )
   }
 
   #[napi]
