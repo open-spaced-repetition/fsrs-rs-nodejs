@@ -11,10 +11,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 chrono      = "0.4.38"
-fsrs        = "2.0.3"
+fsrs        = "2.0.4"
 napi        = { version = "2", features = ['async'] }
 napi-derive = "2"
-
+bincode = "=2.0.0-rc.3" # https://github.com/tracel-ai/burn/issues/2876
+bincode_derive = "=2.0.0-rc.3"
 
 [build-dependencies]
 napi-build = "2"
