@@ -1,6 +1,6 @@
 [package]
 authors = ["AsukaMinato <i at asukaminato dot eu dot org>"]
-edition = "2024"
+edition = "2021"
 name    = "fsrs-rs-nodejs"
 version = "0.8.0"
 
@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 chrono      = "0.4.38"
-fsrs        = "2.0.4"
+fsrs        = "2.0.3"
 napi        = { version = "2", features = ['async'] }
 napi-derive = "2"
 bincode = "=2.0.0-rc.3" # https://github.com/tracel-ai/burn/issues/2876
