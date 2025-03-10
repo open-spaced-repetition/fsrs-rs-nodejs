@@ -15,7 +15,7 @@ fsrs        = "2.0.3"
 napi        = { version = "2", features = ['async'] }
 napi-derive = "2"
 bincode = "=2.0.0-rc.3" # https://github.com/tracel-ai/burn/issues/2876
-bincode_derive = "=2.0.0-rc.3"
+bincode_derive = "=2.0.0"
 
 [build-dependencies]
 napi-build = "2"
