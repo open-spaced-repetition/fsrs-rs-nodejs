@@ -1,21 +1,28 @@
 [package]
-authors = ["AsukaMinato <i at asukaminato dot eu dot org>"]
-edition = "2021"
-name    = "fsrs-rs-nodejs"
-version = "0.8.0"
+authors      = ["AsukaMinato <i at asukaminato dot eu dot org>"]
+edition      = "2024"
+name         = "fsrs-rs-nodejs"
+rust-version = "1.85.0"
+version      = "0.8.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 crate-type = ["cdylib"]
 
+[dependencies.fsrs]
+# version = "2.0.4"
+# path = "../fsrs-rs"
+git = "https://github.com/open-spaced-repetition/fsrs-rs.git"
+# https://github.com/open-spaced-repetition/fsrs-rs/pull/300
+rev = "5578373c3b222aa51433bb60e8002090541a60ee"
+
 [dependencies]
-chrono      = "0.4.38"
-fsrs        = "2.0.3"
-napi        = { version = "2", features = ['async'] }
-napi-derive = "2"
-bincode = "=2.0.0-rc.3" # https://github.com/tracel-ai/burn/issues/2876
+bincode        = "=2.0.0-rc.3"                           # https://github.com/tracel-ai/burn/issues/2876
 bincode_derive = "=2.0.0-rc.3"
+chrono         = "0.4.38"
+napi           = { version = "2", features = ['async'] }
+napi-derive    = "2"
 
 [build-dependencies]
 napi-build = "2"
