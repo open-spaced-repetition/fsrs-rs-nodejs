@@ -1,6 +1,6 @@
 [package]
 authors = ["AsukaMinato <i at asukaminato dot eu dot org>"]
-edition = "2021"
+edition = "2024"
 name    = "fsrs-rs-nodejs"
 version = "0.8.0"
 
