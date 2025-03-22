@@ -61,6 +61,9 @@ jobs:
             build: |
               rustup install 1.85.0 &&
               rustup default 1.85.0 &&
+              curl -fsSL https://ziglang.org/download/index.html | grep -o 'https://.*x86_64-linux.*\.tar\.xz' | head -n 1 | xargs curl -L -o zig.tar.xz &&
+              tar -xf zig.tar.xz &&
+              sudo mv zig-linux-x86_64*/zig /usr/local/bin/zig &&
               yarn build --target aarch64-unknown-linux-gnu
           - host: ubuntu-latest
             target: armv7-unknown-linux-gnueabihf
