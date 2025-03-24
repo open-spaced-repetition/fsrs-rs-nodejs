@@ -18,7 +18,7 @@ git = "https://github.com/open-spaced-repetition/fsrs-rs.git"
 rev = "5578373c3b222aa51433bb60e8002090541a60ee"
 
 [dependencies]
-bincode        = "=2.0.0-rc.3"                           # https://github.com/tracel-ai/burn/issues/2876
+bincode        = "=2.0.1"                           # https://github.com/tracel-ai/burn/issues/2876
 bincode_derive = "=2.0.1"
 chrono         = "0.4.38"
 napi           = { version = "2", features = ['async'] }
