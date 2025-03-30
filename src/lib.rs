@@ -31,6 +31,8 @@ impl Default for FSRS {
 
 #[napi]
 impl FSRS {
+  /// - Parameters must be provided before running commands that need them.
+  /// - Parameters may be an empty array to use the default values instead.
   #[napi(constructor)]
   pub fn new(parameters: Option<Vec<JsNumber>>) -> Self {
     let params: [f32; 19] = match parameters {
@@ -48,6 +50,7 @@ impl FSRS {
     )))
   }
 
+  /// Calculate appropriate parameters for the provided review history.
   #[napi(ts_return_type = "Promise<Array<number>>")]
   pub fn compute_parameters(
     &self,
@@ -96,6 +99,9 @@ impl FSRS {
     Ok(AsyncTask::new(task))
   }
 
+  /// The intervals and memory states for each answer button.
+  ///
+  /// Parameters must have been provided when calling [`new FSRS()`]{@link constructor}.
   #[napi]
   pub fn next_states(
     &self,
@@ -124,6 +130,9 @@ impl FSRS {
     )
   }
 
+  /// Determine how well the model and parameters predict performance.
+  ///
+  /// Parameters must have been provided when calling [`new FSRS()`]{@link constructor}.
   #[napi]
   pub fn evaluate(&self, env: Env, train_set: Vec<&FSRSItem>) -> Result<ModelEvaluation> {
     // Convert your `JS` training items to owned `fsrs::FSRSItem`
@@ -142,6 +151,10 @@ impl FSRS {
     })
   }
 
+  /// If a card has incomplete learning history, memory state can be approximated from
+  /// current sm2 values.
+  ///
+  /// Parameters must have been provided when calling [`new FSRS()`]{@link constructor}.
   #[napi]
   pub fn memory_state_from_sm2(
     &self,
@@ -157,6 +170,12 @@ impl FSRS {
     )
   }
 
+  /// Calculate the current memory state for a given card's history of reviews.
+  /// In the case of truncated reviews, `startingState` can be set to the value of
+  /// {@link memoryStateFromSm2} for the first review (which should not be included
+  /// in {@link FSRSItem}). If not provided, the card starts as new.
+  ///
+  /// Parameters must have been provided when calling [`new FSRS()`]{@link constructor}.
   #[napi]
   pub fn memory_state(&self, item: &FSRSItem, starting_state: Option<&MemoryState>) -> MemoryState {
     let locked_model = self.0.lock().unwrap();
@@ -178,10 +197,14 @@ impl FSRSReview {
   pub fn new(rating: u32, delta_t: u32) -> Self {
     Self(fsrs::FSRSReview { rating, delta_t })
   }
+  /// 1-4
   #[napi(getter)]
   pub fn rating(&self) -> u32 {
     self.0.rating
   }
+  /// The number of days that passed
+  /// # Warning
+  /// `delta_t` for item first(initial) review must be 0
   #[napi(getter)]
   pub fn delta_t(&self) -> u32 {
     self.0.delta_t
@@ -192,6 +215,12 @@ impl FSRSReview {
   }
 }
 
+/// Stores a list of reviews for a card, in chronological order. Each FSRSItem corresponds
+/// to a single review, but contains the previous reviews of the card as well, after the
+/// first one.
+///
+/// When used during review, the last item should include the correct `delta_t`, but
+/// the provided rating is ignored as all four ratings are returned by `.nextStates()`
 #[napi(js_name = "FSRSItem")]
 #[derive(Debug)]
 pub struct FSRSItem(fsrs::FSRSItem);
