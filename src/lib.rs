@@ -87,28 +87,27 @@ impl FSRS {
       .collect::<Vec<_>>();
 
     // Turn `JsFunction` into a `ThreadsafeFunction`
-    let fn_form_js =
-      if let Some(callback) = options.as_ref().and_then(|x| x.progress.as_ref()) {
-        Some(callback.create_threadsafe_function(0, |ctx| {
-          let progress_data: ProgressData = ctx.value;
-          let env = ctx.env;
-          let current = env.create_uint32(progress_data.current as u32)?;
-          let total = env.create_uint32(progress_data.total as u32)?;
-          let percent = env.create_double(progress_data.percent)?;
-          let mut progress_obj = env.create_object()?;
-          progress_obj.set_named_property("current", current)?;
-          progress_obj.set_named_property("total", total)?;
-          progress_obj.set_named_property("percent", percent)?;
-          Ok(vec![progress_obj])
-        })?)
-      } else {
-        None
-      };
+    let fn_form_js = if let Some(callback) = options.as_ref().and_then(|x| x.progress.as_ref()) {
+      Some(callback.create_threadsafe_function(0, |ctx| {
+        let progress_data: ProgressData = ctx.value;
+        let env = ctx.env;
+        let current = env.create_uint32(progress_data.current as u32)?;
+        let total = env.create_uint32(progress_data.total as u32)?;
+        let percent = env.create_double(progress_data.percent)?;
+        let mut progress_obj = env.create_object()?;
+        progress_obj.set_named_property("current", current)?;
+        progress_obj.set_named_property("total", total)?;
+        progress_obj.set_named_property("percent", percent)?;
+        Ok(vec![progress_obj])
+      })?)
+    } else {
+      None
+    };
 
     let task = ComputeParametersTask {
       model: Arc::clone(&self.0),
       train_data,
-      enable_short_term: options.as_ref().map_or(true, |x| x.enable_short_term),
+      enable_short_term: options.as_ref().is_none_or(|x| x.enable_short_term),
       num_relearning_steps: options
         .as_ref()
         .and_then(|x| x.num_relearning_steps)
@@ -164,8 +163,7 @@ impl FSRS {
       num_relearning_steps: options
         .as_ref()
         .and_then(|x| x.num_relearning_steps)
-        .map(|x| x.get_int64().ok())
-        .flatten()
+        .and_then(|x| x.get_int64().ok())
         .map(|x| x as usize),
     })
   }

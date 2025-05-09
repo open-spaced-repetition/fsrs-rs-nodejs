@@ -55,7 +55,7 @@ impl Task for ComputeParametersTask {
           train_set: train_data,
           progress: Some(progress_state_for_thread),
           enable_short_term,
-          num_relearning_steps: num_relearning_steps,
+          num_relearning_steps,
         })
         .map_err(|e| Error::new(Status::GenericFailure, format!("{:?}", e)))
     });
