@@ -14,13 +14,11 @@ crate-type = ["cdylib"]
 # version = "2.0.4"
 # path = "../fsrs-rs"
 git = "https://github.com/open-spaced-repetition/fsrs-rs.git"
-# https://github.com/open-spaced-repetition/fsrs-rs/pull/300
-rev = "5578373c3b222aa51433bb60e8002090541a60ee"
+# https://github.com/open-spaced-repetition/fsrs-rs/pull/326
+rev = "9b2f2f72f68e7fbddf1aff3ca0271d6ee26702e6"
 
 [dependencies]
-bincode        = "=2.0.0-rc.3"                           # https://github.com/tracel-ai/burn/issues/2876
-bincode_derive = "=2.0.1"
-chrono         = "0.4.38"
+burn-autodiff = "0.17.0"
 napi           = { version = "2", features = ['async'] }
 napi-derive    = "2"
 
