@@ -15,6 +15,8 @@ pub struct ComputeParametersTask {
   pub(crate) model: Arc<Mutex<fsrs::FSRS>>,
   // Training data, made owned so it doesn't reference `&self`
   pub(crate) enable_short_term: bool,
+  pub(crate) num_relearning_steps: Option<usize>,
+
   pub(crate) train_data: Vec<fsrs::FSRSItem>,
   // The threadsafe JS callback for partial updates
   pub(crate) progress_callback:
@@ -35,6 +37,7 @@ impl Task for ComputeParametersTask {
     let train_data = self.train_data.clone();
     let model = Arc::clone(&self.model);
     let enable_short_term = self.enable_short_term;
+    let num_relearning_steps = self.num_relearning_steps;
 
     // 2) Spawn a new thread that does the heavy lifting
     //    so we can poll progress *in parallel* on this thread.
@@ -48,11 +51,12 @@ impl Task for ComputeParametersTask {
 
       // Now use `progress_state_for_thread` inside the closure
       locked
-        .compute_parameters(
-          train_data,
-          Some(progress_state_for_thread),
+        .compute_parameters(fsrs::ComputeParametersInput {
+          train_set: train_data,
+          progress: Some(progress_state_for_thread),
           enable_short_term,
-        )
+          num_relearning_steps: num_relearning_steps,
+        })
         .map_err(|e| Error::new(Status::GenericFailure, format!("{:?}", e)))
     });
 
