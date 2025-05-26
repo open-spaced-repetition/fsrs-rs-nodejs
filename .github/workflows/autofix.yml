@@ -4,8 +4,10 @@ on:
   pull_request:
   push:
     branches: [ "main" ]
+  merge_group:
 permissions:
   contents: read
+  
 
 env:
   rust_clippy: stable

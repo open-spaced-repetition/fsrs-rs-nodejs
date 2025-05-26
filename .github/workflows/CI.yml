@@ -20,6 +20,8 @@ permissions:
       - .editorconfig
       - docs/**
   pull_request: null
+  merge_group:
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
