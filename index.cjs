@@ -310,9 +310,11 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { FSRS, DEFAULT_PARAMETERS, FSRSReview, FSRSItem, MemoryState, NextStates, ItemState } = nativeBinding
+const { FSRS, FSRS5_DEFAULT_DECAY, FSRS6_DEFAULT_DECAY, DEFAULT_PARAMETERS, FSRSReview, FSRSItem, MemoryState, NextStates, ItemState } = nativeBinding
 
 module.exports.FSRS = FSRS
+module.exports.FSRS5_DEFAULT_DECAY = FSRS5_DEFAULT_DECAY
+module.exports.FSRS6_DEFAULT_DECAY = FSRS6_DEFAULT_DECAY
 module.exports.DEFAULT_PARAMETERS = DEFAULT_PARAMETERS
 module.exports.FSRSReview = FSRSReview
 module.exports.FSRSItem = FSRSItem

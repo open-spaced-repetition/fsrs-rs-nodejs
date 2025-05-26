@@ -12,17 +12,40 @@ use napi_derive::napi;
 #[napi(js_name = "FSRS")]
 #[derive(Debug)]
 pub struct FSRS(Arc<Mutex<fsrs::FSRS>>);
-
+#[napi]
+pub const FSRS5_DEFAULT_DECAY: f32 = 0.5;
+#[napi]
+pub const FSRS6_DEFAULT_DECAY: f32 = 0.2;
 #[napi]
 /// directly use fsrs::DEFAULT_PARAMETERS will cause error.
 /// referencing statics in constants is unstable
 /// see issue #119618 <https://github.com/rust-lang/rust/issues/119618> for more information
 /// `static` and `const` variables can refer to other `const` variables. A `const` variable, however, cannot refer to a `static` variable.
 /// to fix this, the value can be extracted to a `const` and then used.
-pub const DEFAULT_PARAMETERS: [f32; 19] = [
-  0.40255, 1.18385, 3.173, 15.69105, 7.1949, 0.5345, 1.4604, 0.0046, 1.54575, 0.1192, 1.01925,
-  1.9395, 0.11, 0.29605, 2.2698, 0.2315, 2.9898, 0.51655, 0.6621,
+pub const DEFAULT_PARAMETERS: [f32; 21] = [
+  0.2172,
+  1.1771,
+  3.2602,
+  16.1507,
+  7.0114,
+  0.57,
+  2.0966,
+  0.0069,
+  1.5261,
+  0.112,
+  1.0178,
+  1.849,
+  0.1133,
+  0.3127,
+  2.2934,
+  0.2191,
+  3.0004,
+  0.7536,
+  0.3332,
+  0.1437,
+  FSRS6_DEFAULT_DECAY,
 ];
+
 impl Default for FSRS {
   fn default() -> Self {
     Self::new(None)
@@ -33,12 +56,12 @@ impl Default for FSRS {
 impl FSRS {
   /// - Parameters must be provided before running commands that need them.
   /// - Parameters may be an empty array to use the default values instead.
-  #[napi(constructor)]
+  #[napi(constructor, catch_unwind)]
   pub fn new(parameters: Option<Vec<JsNumber>>) -> Self {
-    let params: [f32; 19] = match parameters {
+    let params: [f32; 21] = match parameters {
       Some(parameters) => {
-        let mut array = [0.0; 19];
-        for (i, value) in parameters.iter().enumerate().take(19) {
+        let mut array = [0.0; 21];
+        for (i, value) in parameters.iter().enumerate().take(21) {
           array[i] = value.get_double().unwrap_or(0.0) as f32;
         }
         array
@@ -55,12 +78,7 @@ impl FSRS {
   pub fn compute_parameters(
     &self,
     train_set: Vec<&FSRSItem>,
-    enable_short_term: bool,
-    #[napi(
-      ts_arg_type = "(err: null | Error, value: { current: number, total: number, percent: number }) => void"
-    )]
-    progress_js_fn: Option<JsFunction>,
-    #[napi(ts_arg_type = "number")] timeout: Option<JsNumber>,
+    #[napi(ts_arg_type = "ComputeParametersOption")] options: Option<ComputeParametersOption>,
   ) -> Result<AsyncTask<ComputeParametersTask>> {
     // Convert your `JS` training items to owned `fsrs::FSRSItem`
     let train_data = train_set
@@ -69,7 +87,7 @@ impl FSRS {
       .collect::<Vec<_>>();
 
     // Turn `JsFunction` into a `ThreadsafeFunction`
-    let fn_form_js = if let Some(callback) = progress_js_fn {
+    let fn_form_js = if let Some(callback) = options.as_ref().and_then(|x| x.progress.as_ref()) {
       Some(callback.create_threadsafe_function(0, |ctx| {
         let progress_data: ProgressData = ctx.value;
         let env = ctx.env;
@@ -89,11 +107,18 @@ impl FSRS {
     let task = ComputeParametersTask {
       model: Arc::clone(&self.0),
       train_data,
-      enable_short_term,
+      enable_short_term: options.as_ref().is_none_or(|x| x.enable_short_term),
+      num_relearning_steps: options
+        .as_ref()
+        .and_then(|x| x.num_relearning_steps)
+        .and_then(|x| x.get_int64().ok())
+        .map(|x| x as usize),
       progress_callback: fn_form_js,
-      progress_timeout: timeout
-        .map(|x| x.get_int64().unwrap_or(500) as u64)
-        .unwrap_or(500),
+      progress_timeout: options
+        .as_ref()
+        .and_then(|x| x.timeout)
+        .and_then(|x| x.get_int64().ok())
+        .map_or(500, |x| x as u64),
     };
 
     Ok(AsyncTask::new(task))
@@ -122,12 +147,25 @@ impl FSRS {
   }
 
   #[napi]
-  pub fn benchmark(&self, train_set: Vec<&FSRSItem>, enable_short_term: bool) -> Vec<f32> {
+  pub fn benchmark(
+    &self,
+    train_set: Vec<&FSRSItem>,
+    #[napi(ts_arg_type = "ComputeParametersOption")] options: Option<ComputeParametersOption>,
+  ) -> Vec<f32> {
     let locked_model = self.0.lock().unwrap();
-    locked_model.benchmark(
-      train_set.iter().map(|x| x.0.clone()).collect(),
-      enable_short_term,
-    )
+    locked_model.benchmark(fsrs::ComputeParametersInput {
+      train_set: train_set.into_iter().map(|x| x.0.clone()).collect(),
+      progress: None,
+      enable_short_term: options
+        .as_ref()
+        .map(|x| x.enable_short_term)
+        .unwrap_or(true),
+      num_relearning_steps: options
+        .as_ref()
+        .and_then(|x| x.num_relearning_steps)
+        .and_then(|x| x.get_int64().ok())
+        .map(|x| x as usize),
+    })
   }
 
   /// Determine how well the model and parameters predict performance.
@@ -325,4 +363,18 @@ impl ItemState {
 pub struct ModelEvaluation {
   pub log_loss: JsNumber,
   pub rmse_bins: JsNumber,
+}
+
+#[napi(object)]
+pub struct ComputeParametersOption {
+  /// Whether to enable short-term memory parameters
+  pub enable_short_term: bool,
+  /// Number of relearning steps
+  pub num_relearning_steps: Option<JsNumber>,
+  #[napi(
+    ts_type = "(err: Error | null , value: { current: number, total: number, percent: number }) => void"
+  )]
+  pub progress: Option<JsFunction>,
+  #[napi(ts_type = "number")]
+  pub timeout: Option<JsNumber>,
 }
