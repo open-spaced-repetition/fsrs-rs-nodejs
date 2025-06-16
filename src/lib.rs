@@ -15,7 +15,7 @@ pub struct FSRS(Arc<Mutex<fsrs::FSRS>>);
 #[napi]
 pub const FSRS5_DEFAULT_DECAY: f32 = 0.5;
 #[napi]
-pub const FSRS6_DEFAULT_DECAY: f32 = 0.2;
+pub const FSRS6_DEFAULT_DECAY: f32 = 0.1542;
 #[napi]
 /// directly use fsrs::DEFAULT_PARAMETERS will cause error.
 /// referencing statics in constants is unstable
@@ -23,26 +23,26 @@ pub const FSRS6_DEFAULT_DECAY: f32 = 0.2;
 /// `static` and `const` variables can refer to other `const` variables. A `const` variable, however, cannot refer to a `static` variable.
 /// to fix this, the value can be extracted to a `const` and then used.
 pub const DEFAULT_PARAMETERS: [f32; 21] = [
-  0.2172,
-  1.1771,
-  3.2602,
-  16.1507,
-  7.0114,
-  0.57,
-  2.0966,
-  0.0069,
-  1.5261,
-  0.112,
-  1.0178,
-  1.849,
-  0.1133,
-  0.3127,
-  2.2934,
-  0.2191,
-  3.0004,
-  0.7536,
-  0.3332,
-  0.1437,
+  0.212,
+  1.2931,
+  2.3065,
+  8.2956,
+  6.4133,
+  0.8334,
+  3.0194,
+  0.001,
+  1.8722,
+  0.1666,
+  0.796,
+  1.4835,
+  0.0614,
+  0.2629,
+  1.6483,
+  0.6014,
+  1.8729,
+  0.5425,
+  0.0912,
+  0.0658,
   FSRS6_DEFAULT_DECAY,
 ];
 
