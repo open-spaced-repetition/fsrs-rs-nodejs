@@ -38,6 +38,8 @@ async function main() {
     .map(removeRevlogBeforeLastLearning)
     .filter((history) => history.length > 0)
     .flatMap(convertToFSRSItem)
+    .sort((a, b) => a[0] - b[0])
+    .map((item) => item[1])
   console.log(`fsrs_items.len() = ${fsrsItems.length}`)
 
   async function computeParametersWrapper(enableShortTerm) {
@@ -45,8 +47,8 @@ async function main() {
     const fsrs = new FSRS(null)
     const optimizedParameters = await fsrs.computeParameters(fsrsItems, {
       enableShortTerm,
-      numRelearningSteps: 0,
-      progressJsFn: progress.bind(null, enableShortTerm),
+      numRelearningSteps: 1,
+      progress: progress.bind(null, enableShortTerm),
       timeout: 1000 /** 1s */,
     })
     console.log(`[enableShortTerm=${enableShortTerm}]optimized parameters:`, optimizedParameters)
@@ -116,12 +118,12 @@ function convertToFSRSItem(history) {
     reviews.push(new FSRSReview(rating, deltaT))
     if (deltaT > 0) {
       // the last review is not the same day
-      items.push(new FSRSItem([...reviews]))
+      items.push([date, new FSRSItem([...reviews])])
     }
     lastDate = date
   }
 
-  return items.filter((item) => item.longTermReviewCnt() > 0)
+  return items.filter((item) => item[1].longTermReviewCnt() > 0)
 }
 
 function dateDiffInDays(a, b) {
