@@ -34,12 +34,12 @@ async function main() {
   const reviewsByCard = groupReviewsByCard(records)
 
   // convert to FSRSItems
-  const fsrsItemsWithTimestamp = Object.values(reviewsByCard)
+  const fsrsItems = Object.values(reviewsByCard)
     .map(removeRevlogBeforeLastLearning)
     .filter((history) => history.length > 0)
     .flatMap(convertToFSRSItem)
-  fsrsItemsWithTimestamp.sort((a, b) => a[0] - b[0])
-  const fsrsItems = fsrsItemsWithTimestamp.map((item) => item[1])
+    .sort((a, b) => a[0] - b[0])
+    .map((item) => item[1])
   console.log(`fsrs_items.len() = ${fsrsItems.length}`)
 
   async function computeParametersWrapper(enableShortTerm) {
@@ -48,7 +48,7 @@ async function main() {
     const optimizedParameters = await fsrs.computeParameters(fsrsItems, {
       enableShortTerm,
       numRelearningSteps: 1,
-      progressJsFn: progress.bind(null, enableShortTerm),
+      progress: progress.bind(null, enableShortTerm),
       timeout: 1000 /** 1s */,
     })
     console.log(`[enableShortTerm=${enableShortTerm}]optimized parameters:`, optimizedParameters)
