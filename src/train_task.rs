@@ -57,7 +57,7 @@ impl Task for ComputeParametersTask {
           enable_short_term,
           num_relearning_steps,
         })
-        .map_err(|e| Error::new(Status::GenericFailure, format!("{:?}", e)))
+        .map_err(|e| Error::new(Status::GenericFailure, format!("{e:?}")))
     });
 
     // 3) Meanwhile, on *this* thread, poll `progress_state` in a loop
@@ -86,7 +86,7 @@ impl Task for ComputeParametersTask {
         );
 
         if status != napi::Status::Ok {
-          eprintln!("Failed to call JS callback, status = {:?}", status);
+          eprintln!("Failed to call JS callback, status = {status:?}");
         }
 
         if finished || percent >= 100.0 {
