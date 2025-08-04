@@ -11,7 +11,7 @@ version      = "0.9.0"
 crate-type = ["cdylib"]
 
 [dependencies.fsrs]
-version = "4.1.1"
+version = "5.0.1"
 # path = "../fsrs-rs"
 # git = "https://github.com/open-spaced-repetition/fsrs-rs.git"
 # https://github.com/open-spaced-repetition/fsrs-rs/pull/326
