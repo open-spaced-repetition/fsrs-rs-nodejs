@@ -20,7 +20,7 @@ version = "5.0.1"
 [dependencies]
 burn-autodiff = "0.17.0"
 napi           = { version = "2", features = ['async'] }
-napi-derive    = "2"
+napi-derive    = "3"
 
 [build-dependencies]
 napi-build = "2"
