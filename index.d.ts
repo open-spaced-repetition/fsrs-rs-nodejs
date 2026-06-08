@@ -13,18 +13,31 @@ export const FSRS6_DEFAULT_DECAY: number
  * to fix this, the value can be extracted to a `const` and then used.
  */
 export const DEFAULT_PARAMETERS: number[]
-export interface ModelEvaluation {
-  logLoss: number
-  rmseBins: number
-}
 export interface ComputeParametersOption {
   /** Whether to enable short-term memory parameters */
-  enableShortTerm: boolean
+  enableShortTerm?: boolean
   /** Number of relearning steps */
   numRelearningSteps?: number
+  /** Optional card ids aligned with `trainSet`. */
+  cardIds?: Array<number>
+  /** Optional optimizer hyperparameters */
+  trainingConfig?: TrainingConfig | TrainingConfigOption
   progress?: (err: Error | null , value: { current: number, total: number, percent: number }) => void
   timeout?: number
 }
+export interface TrainingConfigOption {
+  numEpochs?: number
+  batchSize?: number
+  seed?: number
+  learningRate?: number
+  maxSeqLen?: number
+  gamma?: number
+}
+export declare function defaultSimulatorConfig(): SimulatorConfig
+export declare function simulate(w: Array<number>, desiredRetention: number, config?: SimulatorConfig | undefined | null, seed?: number | undefined | null): SimulationResult
+export declare function evaluateWithTimeSeriesSplits(trainSet: Array<FSRSItem>, options?: ComputeParametersOption): ModelEvaluation
+export declare function filterOutlier(datasetForInitialization: Array<FSRSItem>, trainset: Array<FSRSItem>): FilterOutlierResult
+export declare function checkAndFillParameters(parameters: Array<number>): Array<number>
 export declare class FSRS {
   /**
    * - Parameters must be provided before running commands that need them.
@@ -39,6 +52,7 @@ export declare class FSRS {
    * Parameters must have been provided when calling [`new FSRS()`]{@link constructor}.
    */
   nextStates(currentMemoryState: MemoryState | undefined | null, desiredRetention: number, daysElapsed: number): NextStates
+  nextInterval(stability: number | undefined | null, desiredRetention: number, rating: number): number
   benchmark(trainSet: Array<FSRSItem>, options?: ComputeParametersOption): Array<number>
   /**
    * Determine how well the model and parameters predict performance.
@@ -62,6 +76,9 @@ export declare class FSRS {
    * Parameters must have been provided when calling [`new FSRS()`]{@link constructor}.
    */
   memoryState(item: FSRSItem, startingState?: MemoryState | undefined | null): MemoryState
+  memoryStateBatch(items: Array<FSRSItem>, startingStates?: Array<MemoryState | null | undefined>): Array<MemoryState>
+  historicalMemoryStates(item: FSRSItem, startingState?: MemoryState | undefined | null): Array<MemoryState>
+  historicalMemoryStateBatch(items: Array<FSRSItem>, startingStates?: Array<MemoryState | null | undefined>): Array<Array<MemoryState>>
 }
 export declare class FSRSReview {
   constructor(rating: number, deltaT: number)
@@ -86,6 +103,7 @@ export declare class FSRSReview {
 export declare class FSRSItem {
   constructor(reviews: Array<FSRSReview>)
   get reviews(): Array<FSRSReview>
+  set reviews(reviews: Array<FSRSReview>)
   longTermReviewCnt(): number
   toJSON(): string
 }
@@ -106,4 +124,71 @@ export declare class ItemState {
   get memory(): MemoryState
   get interval(): number
   toJSON(): string
+}
+export declare class TrainingConfig {
+  constructor(numEpochs?: number | undefined | null, batchSize?: number | undefined | null, seed?: number | undefined | null, learningRate?: number | undefined | null, maxSeqLen?: number | undefined | null, gamma?: number | undefined | null)
+  get numEpochs(): number
+  set numEpochs(value: number)
+  get batchSize(): number
+  set batchSize(value: number)
+  get seed(): number
+  set seed(value: number)
+  get learningRate(): number
+  set learningRate(value: number)
+  get maxSeqLen(): number
+  set maxSeqLen(value: number)
+  get gamma(): number
+  set gamma(value: number)
+  toJSON(): string
+}
+export declare class SimulationResult {
+  get memorizedCntPerDay(): Array<number>
+  get reviewCntPerDay(): Array<number>
+  get learnCntPerDay(): Array<number>
+  get costPerDay(): Array<number>
+  get correctCntPerDay(): Array<number>
+  get averageDesiredRetention(): number | null
+  get introducedCntPerDay(): Array<number>
+}
+export declare class SimulatorConfig {
+  constructor(deckSize: number, learnSpan: number, maxCostPerday: number, maxIvl: number, firstRatingProb: Array<number>, reviewRatingProb: Array<number>, learnLimit: number, reviewLimit: number, newCardsIgnoreReviewLimit: boolean, learningStepTransitions: Array<Array<number>>, relearningStepTransitions: Array<Array<number>>, stateRatingCosts: Array<Array<number>>, learningStepCount: number, relearningStepCount: number, suspendAfterLapses?: number | undefined | null)
+  get deckSize(): number
+  set deckSize(value: number)
+  get learnSpan(): number
+  set learnSpan(value: number)
+  get maxCostPerday(): number
+  set maxCostPerday(value: number)
+  get maxIvl(): number
+  set maxIvl(value: number)
+  get firstRatingProb(): Array<number>
+  set firstRatingProb(value: Array<number>)
+  get reviewRatingProb(): Array<number>
+  set reviewRatingProb(value: Array<number>)
+  get learningStepTransitions(): Array<Array<number>>
+  set learningStepTransitions(value: Array<Array<number>>)
+  get relearningStepTransitions(): Array<Array<number>>
+  set relearningStepTransitions(value: Array<Array<number>>)
+  get stateRatingCosts(): Array<Array<number>>
+  set stateRatingCosts(value: Array<Array<number>>)
+  get learningStepCount(): number
+  set learningStepCount(value: number)
+  get relearningStepCount(): number
+  set relearningStepCount(value: number)
+  get learnLimit(): number
+  set learnLimit(value: number)
+  get reviewLimit(): number
+  set reviewLimit(value: number)
+  get newCardsIgnoreReviewLimit(): boolean
+  set newCardsIgnoreReviewLimit(value: boolean)
+  get suspendAfterLapses(): number | null
+  set suspendAfterLapses(value: number | null | undefined)
+}
+export declare class ModelEvaluation {
+  get logLoss(): number
+  get rmseBins(): number
+  toJSON(): string
+}
+export declare class FilterOutlierResult {
+  get datasetForInitialization(): Array<FSRSItem>
+  get trainset(): Array<FSRSItem>
 }

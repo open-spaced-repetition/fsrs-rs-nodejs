@@ -20,7 +20,10 @@ async function main() {
   console.log('Default parameters:', DEFAULT_PARAMETERS)
 
   // Optimize the FSRS model using the created items
-  const optimizedParameters = await fsrs.computeParameters(fsrsItems, true, progress)
+  const optimizedParameters = await fsrs.computeParameters(fsrsItems, {
+    enableShortTerm: true,
+    progress,
+  })
   console.log('Optimized parameters:', optimizedParameters)
 }
 

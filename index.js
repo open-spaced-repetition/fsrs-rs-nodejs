@@ -12,6 +12,16 @@ const {
   MemoryState,
   NextStates,
   ItemState,
+  TrainingConfig,
+  SimulationResult,
+  SimulatorConfig,
+  ModelEvaluation,
+  FilterOutlierResult,
+  defaultSimulatorConfig,
+  simulate,
+  evaluateWithTimeSeriesSplits,
+  filterOutlier,
+  checkAndFillParameters,
 } = require('./index.cjs')
 
 export {
@@ -24,4 +34,14 @@ export {
   MemoryState,
   NextStates,
   ItemState,
+  TrainingConfig,
+  SimulationResult,
+  SimulatorConfig,
+  ModelEvaluation,
+  FilterOutlierResult,
+  defaultSimulatorConfig,
+  simulate,
+  evaluateWithTimeSeriesSplits,
+  filterOutlier,
+  checkAndFillParameters,
 }

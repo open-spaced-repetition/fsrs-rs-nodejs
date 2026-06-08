@@ -1,6 +1,6 @@
 use napi::bindgen_prelude::{Env, Error, Result, Status, Task};
 use napi::threadsafe_function::{ErrorStrategy, ThreadsafeFunction, ThreadsafeFunctionCallMode};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct ProgressData {
@@ -11,11 +11,11 @@ pub struct ProgressData {
 
 /// A background task that runs `compute_parameters`, sending progress updates via TSFN.
 pub struct ComputeParametersTask {
-  // Thread-safe reference to your FSRS model
-  pub(crate) model: Arc<Mutex<fsrs::FSRS>>,
   // Training data, made owned so it doesn't reference `&self`
   pub(crate) enable_short_term: bool,
   pub(crate) num_relearning_steps: Option<usize>,
+  pub(crate) training_config: Option<fsrs::TrainingConfig>,
+  pub(crate) card_ids: Option<Vec<i64>>,
 
   pub(crate) train_data: Vec<fsrs::FSRSItem>,
   // The threadsafe JS callback for partial updates
@@ -35,29 +35,23 @@ impl Task for ComputeParametersTask {
     let progress_state_for_thread = Arc::clone(&progress_state);
     // Clone what we need for the separate thread
     let train_data = self.train_data.clone();
-    let model = Arc::clone(&self.model);
+    let card_ids = self.card_ids.clone();
     let enable_short_term = self.enable_short_term;
     let num_relearning_steps = self.num_relearning_steps;
+    let training_config = self.training_config;
 
     // 2) Spawn a new thread that does the heavy lifting
     //    so we can poll progress *in parallel* on this thread.
     let handle = std::thread::spawn(move || -> Result<Vec<f32>> {
-      let locked = model.lock().map_err(|_| {
-        Error::new(
-          Status::GenericFailure,
-          "Failed to lock FSRS model".to_string(),
-        )
-      })?;
-
-      // Now use `progress_state_for_thread` inside the closure
-      locked
-        .compute_parameters(fsrs::ComputeParametersInput {
-          train_set: train_data,
-          progress: Some(progress_state_for_thread),
-          enable_short_term,
-          num_relearning_steps,
-        })
-        .map_err(|e| Error::new(Status::GenericFailure, format!("{e:?}")))
+      fsrs::compute_parameters(fsrs::ComputeParametersInput {
+        train_set: train_data,
+        card_ids,
+        progress: Some(progress_state_for_thread),
+        enable_short_term,
+        num_relearning_steps,
+        training_config,
+      })
+      .map_err(|e| Error::new(Status::GenericFailure, format!("{e:?}")))
     });
 
     // 3) Meanwhile, on *this* thread, poll `progress_state` in a loop
