@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { FSRS, FSRS5_DEFAULT_DECAY, FSRS6_DEFAULT_DECAY, DEFAULT_PARAMETERS, FSRSReview, FSRSItem, MemoryState, NextStates, ItemState, TrainingConfig, SimulationResult, SimulatorConfig, ModelEvaluation, FilterOutlierResult, defaultSimulatorConfig, simulate, evaluateWithTimeSeriesSplits, filterOutlier, checkAndFillParameters } = nativeBinding
+const { FSRS, FSRS5_DEFAULT_DECAY, FSRS6_DEFAULT_DECAY, DEFAULT_PARAMETERS, FSRSReview, FSRSItem, MemoryState, NextStates, ItemState, FilterOutlierResult, defaultSimulatorConfig, simulate, evaluateWithTimeSeriesSplits, filterOutlier, checkAndFillParameters } = nativeBinding
 
 module.exports.FSRS = FSRS
 module.exports.FSRS5_DEFAULT_DECAY = FSRS5_DEFAULT_DECAY
@@ -321,10 +321,6 @@ module.exports.FSRSItem = FSRSItem
 module.exports.MemoryState = MemoryState
 module.exports.NextStates = NextStates
 module.exports.ItemState = ItemState
-module.exports.TrainingConfig = TrainingConfig
-module.exports.SimulationResult = SimulationResult
-module.exports.SimulatorConfig = SimulatorConfig
-module.exports.ModelEvaluation = ModelEvaluation
 module.exports.FilterOutlierResult = FilterOutlierResult
 module.exports.defaultSimulatorConfig = defaultSimulatorConfig
 module.exports.simulate = simulate

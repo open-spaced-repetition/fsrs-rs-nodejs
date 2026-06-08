@@ -1,7 +1,7 @@
 #![deny(clippy::all)]
 #![allow(unexpected_cfgs)]
+use napi::JsNumber;
 use napi::bindgen_prelude::{AsyncTask, JsFunction, Result};
-use napi::{JsNumber, JsUnknown, ValueType};
 use std::sync::{Arc, Mutex};
 
 mod train_task;
@@ -99,18 +99,6 @@ fn validate_training_config(config: fsrs::TrainingConfig) -> Result<fsrs::Traini
   Ok(config)
 }
 
-fn optional_js_number_to_usize(value: Option<&JsNumber>, default: usize) -> usize {
-  value.and_then(js_number_to_usize).unwrap_or(default)
-}
-
-fn optional_js_number_to_u64(value: Option<&JsNumber>, default: u64) -> u64 {
-  value.and_then(js_number_to_u64).unwrap_or(default)
-}
-
-fn optional_js_number_to_f64(value: Option<&JsNumber>, default: f64) -> f64 {
-  value.and_then(js_number_to_f64).unwrap_or(default)
-}
-
 fn vec_to_f32(values: Vec<JsNumber>) -> Result<Vec<f32>> {
   js_numbers_to_f32(values)
 }
@@ -151,13 +139,13 @@ fn matrix_to_array<const ROWS: usize, const COLS: usize>(
   Ok(matrix)
 }
 
-fn array_to_vec<const N: usize>(values: [f32; N]) -> Vec<f32> {
-  values.into_iter().collect()
+fn array_to_vec<const N: usize>(values: [f32; N]) -> Vec<f64> {
+  values.into_iter().map(f64::from).collect()
 }
 
 fn matrix_to_vec<const ROWS: usize, const COLS: usize>(
   values: [[f32; COLS]; ROWS],
-) -> Vec<Vec<f32>> {
+) -> Vec<Vec<f64>> {
   values.into_iter().map(array_to_vec).collect()
 }
 
@@ -366,7 +354,7 @@ impl FSRS {
     let result = locked_model
       .evaluate(train_data, |_| true)
       .map_err(|e| napi::Error::from_reason(format!("FSRS evaluate failed: {e}")))?;
-    Ok(ModelEvaluation(result))
+    Ok(result.into())
   }
 
   /// If a card has incomplete learning history, memory state can be approximated from
@@ -608,424 +596,144 @@ impl ItemState {
   }
 }
 
-#[napi(js_name = "TrainingConfig")]
-#[derive(Debug, Clone)]
-pub struct TrainingConfig(fsrs::TrainingConfig);
+#[napi(object)]
+pub struct TrainingConfig {
+  pub num_epochs: Option<JsNumber>,
+  pub batch_size: Option<JsNumber>,
+  pub seed: Option<JsNumber>,
+  pub learning_rate: Option<JsNumber>,
+  pub max_seq_len: Option<JsNumber>,
+  pub gamma: Option<JsNumber>,
+}
 
-#[napi]
-impl TrainingConfig {
-  #[napi(constructor)]
-  pub fn new(
-    num_epochs: Option<JsNumber>,
-    batch_size: Option<JsNumber>,
-    seed: Option<JsNumber>,
-    learning_rate: Option<JsNumber>,
-    max_seq_len: Option<JsNumber>,
-    gamma: Option<JsNumber>,
-  ) -> Result<Self> {
-    let config = fsrs::TrainingConfig {
-      num_epochs: optional_js_number_to_usize(num_epochs.as_ref(), 5),
-      batch_size: optional_js_number_to_usize(batch_size.as_ref(), 512),
-      seed: optional_js_number_to_u64(seed.as_ref(), 2023),
-      learning_rate: optional_js_number_to_f64(learning_rate.as_ref(), 4e-2),
-      max_seq_len: optional_js_number_to_usize(max_seq_len.as_ref(), 256),
-      gamma: optional_js_number_to_f64(gamma.as_ref(), 1.0),
-    };
+#[napi(object)]
+pub struct SimulationResult {
+  pub memorized_cnt_per_day: Vec<f64>,
+  pub review_cnt_per_day: Vec<u32>,
+  pub learn_cnt_per_day: Vec<u32>,
+  pub cost_per_day: Vec<f64>,
+  pub correct_cnt_per_day: Vec<u32>,
+  pub average_desired_retention: Option<f64>,
+  pub introduced_cnt_per_day: Vec<u32>,
+}
 
-    Ok(Self(validate_training_config(config)?))
-  }
-
-  #[napi(getter)]
-  pub fn num_epochs(&self) -> f64 {
-    self.0.num_epochs as f64
-  }
-
-  #[napi(setter)]
-  pub fn set_num_epochs(&mut self, value: JsNumber) -> Result<()> {
-    self.0.num_epochs = js_number_to_usize(&value)
-      .ok_or_else(|| napi_error("numEpochs must be a non-negative integer"))?;
-    Ok(())
-  }
-
-  #[napi(getter)]
-  pub fn batch_size(&self) -> f64 {
-    self.0.batch_size as f64
-  }
-
-  #[napi(setter)]
-  pub fn set_batch_size(&mut self, value: JsNumber) -> Result<()> {
-    let batch_size = js_number_to_usize(&value)
-      .ok_or_else(|| napi_error("batchSize must be a non-negative integer"))?;
-    if batch_size == 0 {
-      return Err(napi_error("batchSize must be greater than 0"));
+impl From<fsrs::SimulationResult> for SimulationResult {
+  fn from(result: fsrs::SimulationResult) -> Self {
+    Self {
+      memorized_cnt_per_day: result
+        .memorized_cnt_per_day
+        .into_iter()
+        .map(f64::from)
+        .collect(),
+      review_cnt_per_day: result
+        .review_cnt_per_day
+        .iter()
+        .map(|&value| value as u32)
+        .collect(),
+      learn_cnt_per_day: result
+        .learn_cnt_per_day
+        .iter()
+        .map(|&value| value as u32)
+        .collect(),
+      cost_per_day: result.cost_per_day.into_iter().map(f64::from).collect(),
+      correct_cnt_per_day: result
+        .correct_cnt_per_day
+        .iter()
+        .map(|&value| value as u32)
+        .collect(),
+      average_desired_retention: result.average_desired_retention.map(f64::from),
+      introduced_cnt_per_day: result
+        .introduced_cnt_per_day
+        .iter()
+        .map(|&value| value as u32)
+        .collect(),
     }
-    self.0.batch_size = batch_size;
-    Ok(())
-  }
-
-  #[napi(getter)]
-  pub fn seed(&self) -> f64 {
-    self.0.seed as f64
-  }
-
-  #[napi(setter)]
-  pub fn set_seed(&mut self, value: JsNumber) -> Result<()> {
-    self.0.seed =
-      js_number_to_u64(&value).ok_or_else(|| napi_error("seed must be a non-negative integer"))?;
-    Ok(())
-  }
-
-  #[napi(getter)]
-  pub fn learning_rate(&self) -> f64 {
-    self.0.learning_rate
-  }
-
-  #[napi(setter)]
-  pub fn set_learning_rate(&mut self, value: JsNumber) -> Result<()> {
-    let learning_rate =
-      js_number_to_f64(&value).ok_or_else(|| napi_error("learningRate must be finite"))?;
-    self.0.learning_rate = learning_rate;
-    Ok(())
-  }
-
-  #[napi(getter)]
-  pub fn max_seq_len(&self) -> f64 {
-    self.0.max_seq_len as f64
-  }
-
-  #[napi(setter)]
-  pub fn set_max_seq_len(&mut self, value: JsNumber) -> Result<()> {
-    self.0.max_seq_len = js_number_to_usize(&value)
-      .ok_or_else(|| napi_error("maxSeqLen must be a non-negative integer"))?;
-    Ok(())
-  }
-
-  #[napi(getter)]
-  pub fn gamma(&self) -> f64 {
-    self.0.gamma
-  }
-
-  #[napi(setter)]
-  pub fn set_gamma(&mut self, value: JsNumber) -> Result<()> {
-    let gamma = js_number_to_f64(&value).ok_or_else(|| napi_error("gamma must be finite"))?;
-    self.0.gamma = gamma;
-    Ok(())
-  }
-
-  #[napi(js_name = "toJSON")]
-  pub fn to_json(&self) -> String {
-    format!("{:?}", self.0)
   }
 }
 
-#[napi(js_name = "SimulationResult")]
-pub struct SimulationResult(fsrs::SimulationResult);
-
-#[napi]
-impl SimulationResult {
-  #[napi(getter)]
-  pub fn memorized_cnt_per_day(&self) -> Vec<f32> {
-    self.0.memorized_cnt_per_day.clone()
-  }
-
-  #[napi(getter)]
-  pub fn review_cnt_per_day(&self) -> Vec<u32> {
-    self
-      .0
-      .review_cnt_per_day
-      .iter()
-      .map(|&value| value as u32)
-      .collect()
-  }
-
-  #[napi(getter)]
-  pub fn learn_cnt_per_day(&self) -> Vec<u32> {
-    self
-      .0
-      .learn_cnt_per_day
-      .iter()
-      .map(|&value| value as u32)
-      .collect()
-  }
-
-  #[napi(getter)]
-  pub fn cost_per_day(&self) -> Vec<f32> {
-    self.0.cost_per_day.clone()
-  }
-
-  #[napi(getter)]
-  pub fn correct_cnt_per_day(&self) -> Vec<u32> {
-    self
-      .0
-      .correct_cnt_per_day
-      .iter()
-      .map(|&value| value as u32)
-      .collect()
-  }
-
-  #[napi(getter)]
-  pub fn average_desired_retention(&self) -> Option<f32> {
-    self.0.average_desired_retention
-  }
-
-  #[napi(getter)]
-  pub fn introduced_cnt_per_day(&self) -> Vec<u32> {
-    self
-      .0
-      .introduced_cnt_per_day
-      .iter()
-      .map(|&value| value as u32)
-      .collect()
-  }
+#[napi(object)]
+pub struct SimulatorConfig {
+  pub deck_size: u32,
+  pub learn_span: u32,
+  pub max_cost_perday: f64,
+  pub max_ivl: f64,
+  pub first_rating_prob: Vec<f64>,
+  pub review_rating_prob: Vec<f64>,
+  pub learn_limit: u32,
+  pub review_limit: u32,
+  pub new_cards_ignore_review_limit: bool,
+  pub learning_step_transitions: Vec<Vec<f64>>,
+  pub relearning_step_transitions: Vec<Vec<f64>>,
+  pub state_rating_costs: Vec<Vec<f64>>,
+  pub learning_step_count: u32,
+  pub relearning_step_count: u32,
+  pub suspend_after_lapses: Option<u32>,
 }
 
-#[napi(js_name = "SimulatorConfig")]
-#[derive(Default)]
-pub struct SimulatorConfig(fsrs::SimulatorConfig);
-
-#[napi]
 impl SimulatorConfig {
-  #[napi(constructor)]
-  #[allow(clippy::too_many_arguments)]
-  pub fn new(
-    deck_size: u32,
-    learn_span: u32,
-    max_cost_perday: f64,
-    max_ivl: f64,
-    first_rating_prob: Vec<f64>,
-    review_rating_prob: Vec<f64>,
-    learn_limit: u32,
-    review_limit: u32,
-    new_cards_ignore_review_limit: bool,
-    learning_step_transitions: Vec<Vec<f64>>,
-    relearning_step_transitions: Vec<Vec<f64>>,
-    state_rating_costs: Vec<Vec<f64>>,
-    learning_step_count: u32,
-    relearning_step_count: u32,
-    suspend_after_lapses: Option<u32>,
-  ) -> Result<Self> {
-    Ok(Self(fsrs::SimulatorConfig {
-      deck_size: deck_size as usize,
-      learn_span: learn_span as usize,
-      max_cost_perday: max_cost_perday as f32,
-      max_ivl: max_ivl as f32,
-      first_rating_prob: vec_to_array(first_rating_prob, "firstRatingProb")?,
-      review_rating_prob: vec_to_array(review_rating_prob, "reviewRatingProb")?,
-      learn_limit: learn_limit as usize,
-      review_limit: review_limit as usize,
-      new_cards_ignore_review_limit,
-      suspend_after_lapses,
+  fn into_fsrs(self) -> Result<fsrs::SimulatorConfig> {
+    Ok(fsrs::SimulatorConfig {
+      deck_size: self.deck_size as usize,
+      learn_span: self.learn_span as usize,
+      max_cost_perday: self.max_cost_perday as f32,
+      max_ivl: self.max_ivl as f32,
+      first_rating_prob: vec_to_array(self.first_rating_prob, "firstRatingProb")?,
+      review_rating_prob: vec_to_array(self.review_rating_prob, "reviewRatingProb")?,
+      learn_limit: self.learn_limit as usize,
+      review_limit: self.review_limit as usize,
+      new_cards_ignore_review_limit: self.new_cards_ignore_review_limit,
+      suspend_after_lapses: self.suspend_after_lapses,
       post_scheduling_fn: None,
       review_priority_fn: None,
       learning_step_transitions: matrix_to_array(
-        learning_step_transitions,
+        self.learning_step_transitions,
         "learningStepTransitions",
       )?,
       relearning_step_transitions: matrix_to_array(
-        relearning_step_transitions,
+        self.relearning_step_transitions,
         "relearningStepTransitions",
       )?,
-      state_rating_costs: matrix_to_array(state_rating_costs, "stateRatingCosts")?,
-      learning_step_count: learning_step_count as usize,
-      relearning_step_count: relearning_step_count as usize,
-    }))
-  }
-
-  #[napi(getter)]
-  pub fn deck_size(&self) -> u32 {
-    self.0.deck_size as u32
-  }
-
-  #[napi(setter)]
-  pub fn set_deck_size(&mut self, value: u32) {
-    self.0.deck_size = value as usize;
-  }
-
-  #[napi(getter)]
-  pub fn learn_span(&self) -> u32 {
-    self.0.learn_span as u32
-  }
-
-  #[napi(setter)]
-  pub fn set_learn_span(&mut self, value: u32) {
-    self.0.learn_span = value as usize;
-  }
-
-  #[napi(getter)]
-  pub fn max_cost_perday(&self) -> f32 {
-    self.0.max_cost_perday
-  }
-
-  #[napi(setter)]
-  pub fn set_max_cost_perday(&mut self, value: f64) {
-    self.0.max_cost_perday = value as f32;
-  }
-
-  #[napi(getter)]
-  pub fn max_ivl(&self) -> f32 {
-    self.0.max_ivl
-  }
-
-  #[napi(setter)]
-  pub fn set_max_ivl(&mut self, value: f64) {
-    self.0.max_ivl = value as f32;
-  }
-
-  #[napi(getter)]
-  pub fn first_rating_prob(&self) -> Vec<f32> {
-    array_to_vec(self.0.first_rating_prob)
-  }
-
-  #[napi(setter)]
-  pub fn set_first_rating_prob(&mut self, value: Vec<f64>) -> Result<()> {
-    self.0.first_rating_prob = vec_to_array(value, "firstRatingProb")?;
-    Ok(())
-  }
-
-  #[napi(getter)]
-  pub fn review_rating_prob(&self) -> Vec<f32> {
-    array_to_vec(self.0.review_rating_prob)
-  }
-
-  #[napi(setter)]
-  pub fn set_review_rating_prob(&mut self, value: Vec<f64>) -> Result<()> {
-    self.0.review_rating_prob = vec_to_array(value, "reviewRatingProb")?;
-    Ok(())
-  }
-
-  #[napi(getter)]
-  pub fn learning_step_transitions(&self) -> Vec<Vec<f32>> {
-    matrix_to_vec(self.0.learning_step_transitions)
-  }
-
-  #[napi(setter)]
-  pub fn set_learning_step_transitions(&mut self, value: Vec<Vec<f64>>) -> Result<()> {
-    self.0.learning_step_transitions = matrix_to_array(value, "learningStepTransitions")?;
-    Ok(())
-  }
-
-  #[napi(getter)]
-  pub fn relearning_step_transitions(&self) -> Vec<Vec<f32>> {
-    matrix_to_vec(self.0.relearning_step_transitions)
-  }
-
-  #[napi(setter)]
-  pub fn set_relearning_step_transitions(&mut self, value: Vec<Vec<f64>>) -> Result<()> {
-    self.0.relearning_step_transitions = matrix_to_array(value, "relearningStepTransitions")?;
-    Ok(())
-  }
-
-  #[napi(getter)]
-  pub fn state_rating_costs(&self) -> Vec<Vec<f32>> {
-    matrix_to_vec(self.0.state_rating_costs)
-  }
-
-  #[napi(setter)]
-  pub fn set_state_rating_costs(&mut self, value: Vec<Vec<f64>>) -> Result<()> {
-    self.0.state_rating_costs = matrix_to_array(value, "stateRatingCosts")?;
-    Ok(())
-  }
-
-  #[napi(getter)]
-  pub fn learning_step_count(&self) -> u32 {
-    self.0.learning_step_count as u32
-  }
-
-  #[napi(setter)]
-  pub fn set_learning_step_count(&mut self, value: u32) {
-    self.0.learning_step_count = value as usize;
-  }
-
-  #[napi(getter)]
-  pub fn relearning_step_count(&self) -> u32 {
-    self.0.relearning_step_count as u32
-  }
-
-  #[napi(setter)]
-  pub fn set_relearning_step_count(&mut self, value: u32) {
-    self.0.relearning_step_count = value as usize;
-  }
-
-  #[napi(getter)]
-  pub fn learn_limit(&self) -> u32 {
-    self.0.learn_limit as u32
-  }
-
-  #[napi(setter)]
-  pub fn set_learn_limit(&mut self, value: u32) {
-    self.0.learn_limit = value as usize;
-  }
-
-  #[napi(getter)]
-  pub fn review_limit(&self) -> u32 {
-    self.0.review_limit as u32
-  }
-
-  #[napi(setter)]
-  pub fn set_review_limit(&mut self, value: u32) {
-    self.0.review_limit = value as usize;
-  }
-
-  #[napi(getter)]
-  pub fn new_cards_ignore_review_limit(&self) -> bool {
-    self.0.new_cards_ignore_review_limit
-  }
-
-  #[napi(setter)]
-  pub fn set_new_cards_ignore_review_limit(&mut self, value: bool) {
-    self.0.new_cards_ignore_review_limit = value;
-  }
-
-  #[napi(getter)]
-  pub fn suspend_after_lapses(&self) -> Option<u32> {
-    self.0.suspend_after_lapses
-  }
-
-  #[napi(setter)]
-  pub fn set_suspend_after_lapses(
-    &mut self,
-    #[napi(ts_arg_type = "number | null | undefined")] value: JsUnknown,
-  ) -> Result<()> {
-    self.0.suspend_after_lapses = match value.get_type()? {
-      ValueType::Undefined | ValueType::Null => None,
-      ValueType::Number => {
-        let value = unsafe { value.cast::<JsNumber>() };
-        let value = js_number_to_u64(&value)
-          .ok_or_else(|| napi_error("suspendAfterLapses must be a non-negative integer"))?;
-        Some(
-          u32::try_from(value)
-            .map_err(|_| napi_error("suspendAfterLapses must fit in a 32-bit unsigned integer"))?,
-        )
-      }
-      _ => {
-        return Err(napi_error(
-          "suspendAfterLapses must be a number, null, or undefined",
-        ));
-      }
-    };
-    Ok(())
+      state_rating_costs: matrix_to_array(self.state_rating_costs, "stateRatingCosts")?,
+      learning_step_count: self.learning_step_count as usize,
+      relearning_step_count: self.relearning_step_count as usize,
+    })
   }
 }
 
-#[napi(js_name = "ModelEvaluation")]
-#[derive(Debug, Clone)]
-pub struct ModelEvaluation(fsrs::ModelEvaluation);
-
-#[napi]
-impl ModelEvaluation {
-  #[napi(getter)]
-  pub fn log_loss(&self) -> f32 {
-    self.0.log_loss
+impl From<fsrs::SimulatorConfig> for SimulatorConfig {
+  fn from(config: fsrs::SimulatorConfig) -> Self {
+    Self {
+      deck_size: config.deck_size as u32,
+      learn_span: config.learn_span as u32,
+      max_cost_perday: config.max_cost_perday as f64,
+      max_ivl: config.max_ivl as f64,
+      first_rating_prob: array_to_vec(config.first_rating_prob),
+      review_rating_prob: array_to_vec(config.review_rating_prob),
+      learn_limit: config.learn_limit as u32,
+      review_limit: config.review_limit as u32,
+      new_cards_ignore_review_limit: config.new_cards_ignore_review_limit,
+      learning_step_transitions: matrix_to_vec(config.learning_step_transitions),
+      relearning_step_transitions: matrix_to_vec(config.relearning_step_transitions),
+      state_rating_costs: matrix_to_vec(config.state_rating_costs),
+      learning_step_count: config.learning_step_count as u32,
+      relearning_step_count: config.relearning_step_count as u32,
+      suspend_after_lapses: config.suspend_after_lapses,
+    }
   }
+}
 
-  #[napi(getter)]
-  pub fn rmse_bins(&self) -> f32 {
-    self.0.rmse_bins
-  }
+#[napi(object)]
+pub struct ModelEvaluation {
+  pub log_loss: f64,
+  pub rmse_bins: f64,
+}
 
-  #[napi(js_name = "toJSON")]
-  pub fn to_json(&self) -> String {
-    format!("{:?}", self.0)
+impl From<fsrs::ModelEvaluation> for ModelEvaluation {
+  fn from(result: fsrs::ModelEvaluation) -> Self {
+    Self {
+      log_loss: result.log_loss as f64,
+      rmse_bins: result.rmse_bins as f64,
+    }
   }
 }
 
@@ -1039,24 +747,13 @@ pub struct ComputeParametersOption {
   #[napi(ts_type = "Array<number>")]
   pub card_ids: Option<Vec<JsNumber>>,
   /// Optional optimizer hyperparameters
-  #[napi(ts_type = "TrainingConfig | TrainingConfigOption")]
-  pub training_config: Option<TrainingConfigOption>,
+  pub training_config: Option<TrainingConfig>,
   #[napi(
     ts_type = "(err: Error | null , value: { current: number, total: number, percent: number }) => void"
   )]
   pub progress: Option<JsFunction>,
   #[napi(ts_type = "number")]
   pub timeout: Option<JsNumber>,
-}
-
-#[napi(object)]
-pub struct TrainingConfigOption {
-  pub num_epochs: Option<JsNumber>,
-  pub batch_size: Option<JsNumber>,
-  pub seed: Option<JsNumber>,
-  pub learning_rate: Option<JsNumber>,
-  pub max_seq_len: Option<JsNumber>,
-  pub gamma: Option<JsNumber>,
 }
 
 #[napi(js_name = "FilterOutlierResult")]
@@ -1085,18 +782,20 @@ impl FilterOutlierResult {
 
 #[napi]
 pub fn default_simulator_config() -> SimulatorConfig {
-  SimulatorConfig::default()
+  fsrs::SimulatorConfig::default().into()
 }
 
 #[napi]
 pub fn simulate(
   w: Vec<JsNumber>,
   desired_retention: f64,
-  config: Option<&SimulatorConfig>,
+  config: Option<SimulatorConfig>,
   seed: Option<JsNumber>,
 ) -> Result<SimulationResult> {
-  let default_config = SimulatorConfig::default();
-  let config = config.unwrap_or(&default_config);
+  let config = match config {
+    Some(config) => config.into_fsrs()?,
+    None => fsrs::SimulatorConfig::default(),
+  };
   let seed = seed
     .as_ref()
     .map(|seed| {
@@ -1105,13 +804,13 @@ pub fn simulate(
     .transpose()?;
 
   fsrs::simulate(
-    &config.0,
+    &config,
     &vec_to_f32(w)?,
     desired_retention as f32,
     seed,
     None,
   )
-  .map(SimulationResult)
+  .map(SimulationResult::from)
   .map_err(|e| fsrs_error("simulate", e))
 }
 
@@ -1126,7 +825,7 @@ pub fn evaluate_with_time_series_splits(
   )
   .map_err(|e| fsrs_error("evaluateWithTimeSeriesSplits", e))?;
 
-  Ok(ModelEvaluation(result))
+  Ok(result.into())
 }
 
 #[napi]

@@ -1,10 +1,10 @@
 import test from 'ava'
+import type { TrainingConfig } from '../index.js'
 import {
   DEFAULT_PARAMETERS,
   FSRS,
   FSRSItem,
   FSRSReview,
-  TrainingConfig,
   checkAndFillParameters,
   defaultSimulatorConfig,
   evaluateWithTimeSeriesSplits,
@@ -79,17 +79,14 @@ test('updates FSRSItem reviews', (t) => {
   t.is(item.reviews[0].rating, 3)
 })
 
-test('constructs and validates training config', (t) => {
-  const config = new TrainingConfig()
+test('accepts and validates training config objects', (t) => {
+  const config: TrainingConfig = { batchSize: 128 }
 
-  t.is(config.numEpochs, 5)
-  t.is(config.batchSize, 512)
-  config.batchSize = 128
   t.is(config.batchSize, 128)
 
   t.throws(
     () => {
-      config.batchSize = 0
+      evaluateWithTimeSeriesSplits([], { trainingConfig: { batchSize: 0 } })
     },
     { message: /batchSize/ },
   )
