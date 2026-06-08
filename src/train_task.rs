@@ -56,7 +56,7 @@ impl Task for ComputeParametersTask {
 
     // 3) Meanwhile, on *this* thread, poll `progress_state` in a loop
     //    and call `progress_callback` with updated progress.
-    if self.progress_callback.is_some() {
+    if let Some(progress_callback) = &self.progress_callback {
       loop {
         let (current, total, finished) = {
           let p = progress_state.lock().unwrap();
@@ -70,7 +70,7 @@ impl Task for ComputeParametersTask {
         };
 
         // Call JS callback if you want once per second or whenever progress changes
-        let status = self.progress_callback.as_ref().unwrap().call(
+        let status = progress_callback.call(
           Ok(ProgressData {
             current,
             total,
