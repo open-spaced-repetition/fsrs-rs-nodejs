@@ -12,6 +12,12 @@ const {
   MemoryState,
   NextStates,
   ItemState,
+  FilterOutlierResult,
+  defaultSimulatorConfig,
+  simulate,
+  evaluateWithTimeSeriesSplits,
+  filterOutlier,
+  checkAndFillParameters,
 } = require('./index.cjs')
 
 export {
@@ -24,4 +30,10 @@ export {
   MemoryState,
   NextStates,
   ItemState,
+  FilterOutlierResult,
+  defaultSimulatorConfig,
+  simulate,
+  evaluateWithTimeSeriesSplits,
+  filterOutlier,
+  checkAndFillParameters,
 }

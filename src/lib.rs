@@ -1,6 +1,7 @@
 #![deny(clippy::all)]
+#![allow(unexpected_cfgs)]
+use napi::JsNumber;
 use napi::bindgen_prelude::{AsyncTask, JsFunction, Result};
-use napi::{Env, JsNumber};
 use std::sync::{Arc, Mutex};
 
 mod train_task;
@@ -48,8 +49,193 @@ pub const DEFAULT_PARAMETERS: [f32; 21] = [
 
 impl Default for FSRS {
   fn default() -> Self {
-    Self::new(None)
+    Self(Arc::new(Mutex::new(fsrs::FSRS::default())))
   }
+}
+
+fn js_numbers_to_f32(values: Vec<JsNumber>) -> Result<Vec<f32>> {
+  values
+    .iter()
+    .map(|value| value.get_double().map(|value| value as f32))
+    .collect()
+}
+
+fn js_number_to_usize(value: &JsNumber) -> Option<usize> {
+  value
+    .get_int64()
+    .ok()
+    .and_then(|value| usize::try_from(value).ok())
+}
+
+fn js_number_to_u64(value: &JsNumber) -> Option<u64> {
+  value
+    .get_int64()
+    .ok()
+    .and_then(|value| u64::try_from(value).ok())
+}
+
+fn js_number_to_f64(value: &JsNumber) -> Option<f64> {
+  value.get_double().ok().filter(|value| value.is_finite())
+}
+
+fn napi_error(message: impl Into<String>) -> napi::Error {
+  napi::Error::from_reason(message.into())
+}
+
+fn fsrs_error(action: &str, error: fsrs::FSRSError) -> napi::Error {
+  napi_error(format!("FSRS {action} failed: {error}"))
+}
+
+fn validate_training_config(config: fsrs::TrainingConfig) -> Result<fsrs::TrainingConfig> {
+  if config.batch_size == 0 {
+    return Err(napi_error("batchSize must be greater than 0"));
+  }
+  if !config.learning_rate.is_finite() {
+    return Err(napi_error("learningRate must be finite"));
+  }
+  if !config.gamma.is_finite() {
+    return Err(napi_error("gamma must be finite"));
+  }
+  Ok(config)
+}
+
+fn vec_to_f32(values: Vec<JsNumber>) -> Result<Vec<f32>> {
+  js_numbers_to_f32(values)
+}
+
+fn vec_to_array<const N: usize>(values: Vec<f64>, name: &str) -> Result<[f32; N]> {
+  if values.len() != N {
+    return Err(napi_error(format!(
+      "{name} must contain exactly {N} values"
+    )));
+  }
+
+  let mut array = [0.0; N];
+  for (index, value) in values.into_iter().enumerate() {
+    if !value.is_finite() {
+      return Err(napi_error(format!("{name} must contain finite values")));
+    }
+    array[index] = value as f32;
+  }
+
+  Ok(array)
+}
+
+fn matrix_to_array<const ROWS: usize, const COLS: usize>(
+  values: Vec<Vec<f64>>,
+  name: &str,
+) -> Result<[[f32; COLS]; ROWS]> {
+  if values.len() != ROWS {
+    return Err(napi_error(format!(
+      "{name} must contain exactly {ROWS} rows"
+    )));
+  }
+
+  let mut matrix = [[0.0; COLS]; ROWS];
+  for (row_index, row) in values.into_iter().enumerate() {
+    matrix[row_index] = vec_to_array(row, name)?;
+  }
+
+  Ok(matrix)
+}
+
+fn array_to_vec<const N: usize>(values: [f32; N]) -> Vec<f64> {
+  values.into_iter().map(f64::from).collect()
+}
+
+fn matrix_to_vec<const ROWS: usize, const COLS: usize>(
+  values: [[f32; COLS]; ROWS],
+) -> Vec<Vec<f64>> {
+  values.into_iter().map(array_to_vec).collect()
+}
+
+fn enable_short_term_from_options(options: Option<&ComputeParametersOption>) -> bool {
+  options.and_then(|x| x.enable_short_term).unwrap_or(true)
+}
+
+fn num_relearning_steps_from_options(options: Option<&ComputeParametersOption>) -> Option<usize> {
+  options
+    .and_then(|x| x.num_relearning_steps.as_ref())
+    .and_then(js_number_to_usize)
+}
+
+fn progress_timeout_from_options(options: Option<&ComputeParametersOption>) -> u64 {
+  options
+    .and_then(|x| x.timeout.as_ref())
+    .and_then(js_number_to_u64)
+    .unwrap_or(500)
+}
+
+fn card_ids_from_options(options: Option<&ComputeParametersOption>) -> Result<Option<Vec<i64>>> {
+  options
+    .and_then(|x| x.card_ids.as_ref())
+    .map(|card_ids| {
+      card_ids
+        .iter()
+        .map(|card_id| card_id.get_int64())
+        .collect::<Result<Vec<_>>>()
+    })
+    .transpose()
+}
+
+fn training_config_from_options(
+  options: Option<&ComputeParametersOption>,
+) -> Result<Option<fsrs::TrainingConfig>> {
+  let Some(options) = options.and_then(|x| x.training_config.as_ref()) else {
+    return Ok(None);
+  };
+  let mut config = fsrs::TrainingConfig::default();
+
+  if let Some(value) = options.num_epochs.as_ref().and_then(js_number_to_usize) {
+    config.num_epochs = value;
+  }
+  if let Some(value) = options.batch_size.as_ref().and_then(js_number_to_usize) {
+    config.batch_size = value;
+  }
+  if let Some(value) = options.seed.as_ref().and_then(js_number_to_u64) {
+    config.seed = value;
+  }
+  if let Some(value) = options.learning_rate.as_ref().and_then(js_number_to_f64) {
+    config.learning_rate = value;
+  }
+  if let Some(value) = options.max_seq_len.as_ref().and_then(js_number_to_usize) {
+    config.max_seq_len = value;
+  }
+  if let Some(value) = options.gamma.as_ref().and_then(js_number_to_f64) {
+    config.gamma = value;
+  }
+
+  Ok(Some(validate_training_config(config)?))
+}
+
+fn compute_parameters_input(
+  train_set: Vec<&FSRSItem>,
+  options: Option<&ComputeParametersOption>,
+  progress: Option<Arc<Mutex<fsrs::CombinedProgressState>>>,
+) -> Result<fsrs::ComputeParametersInput> {
+  Ok(fsrs::ComputeParametersInput {
+    train_set: train_set.into_iter().map(|x| x.0.clone()).collect(),
+    card_ids: card_ids_from_options(options)?,
+    progress,
+    enable_short_term: enable_short_term_from_options(options),
+    num_relearning_steps: num_relearning_steps_from_options(options),
+    training_config: training_config_from_options(options)?,
+  })
+}
+
+fn convert_starting_states(
+  starting_states: Option<Vec<Option<&MemoryState>>>,
+  len: usize,
+) -> Vec<Option<fsrs::MemoryState>> {
+  starting_states.map_or_else(
+    || (0..len).map(|_| None).collect(),
+    |states| {
+      states
+        .into_iter()
+        .map(|state| state.map(|state| state.0))
+        .collect()
+    },
+  )
 }
 
 #[napi]
@@ -57,20 +243,11 @@ impl FSRS {
   /// - Parameters must be provided before running commands that need them.
   /// - Parameters may be an empty array to use the default values instead.
   #[napi(constructor, catch_unwind)]
-  pub fn new(parameters: Option<Vec<JsNumber>>) -> Self {
-    let params: [f32; 21] = match parameters {
-      Some(parameters) => {
-        let mut array = [0.0; 21];
-        for (i, value) in parameters.iter().enumerate().take(21) {
-          array[i] = value.get_double().unwrap_or(0.0) as f32;
-        }
-        array
-      }
-      None => DEFAULT_PARAMETERS,
-    };
-    Self(Arc::new(Mutex::new(
-      fsrs::FSRS::new(Some(&params)).unwrap(),
-    )))
+  pub fn new(parameters: Option<Vec<JsNumber>>) -> Result<Self> {
+    let params = js_numbers_to_f32(parameters.unwrap_or_default())?;
+    let model = fsrs::FSRS::new(&params)
+      .map_err(|e| napi::Error::from_reason(format!("FSRS initialization failed: {e}")))?;
+    Ok(Self(Arc::new(Mutex::new(model))))
   }
 
   /// Calculate appropriate parameters for the provided review history.
@@ -105,20 +282,13 @@ impl FSRS {
     };
 
     let task = ComputeParametersTask {
-      model: Arc::clone(&self.0),
       train_data,
-      enable_short_term: options.as_ref().is_none_or(|x| x.enable_short_term),
-      num_relearning_steps: options
-        .as_ref()
-        .and_then(|x| x.num_relearning_steps)
-        .and_then(|x| x.get_int64().ok())
-        .map(|x| x as usize),
+      card_ids: card_ids_from_options(options.as_ref())?,
+      enable_short_term: enable_short_term_from_options(options.as_ref()),
+      num_relearning_steps: num_relearning_steps_from_options(options.as_ref()),
+      training_config: training_config_from_options(options.as_ref())?,
       progress_callback: fn_form_js,
-      progress_timeout: options
-        .as_ref()
-        .and_then(|x| x.timeout)
-        .and_then(|x| x.get_int64().ok())
-        .map_or(500, |x| x as u64),
+      progress_timeout: progress_timeout_from_options(options.as_ref()),
     };
 
     Ok(AsyncTask::new(task))
@@ -133,16 +303,26 @@ impl FSRS {
     current_memory_state: Option<&MemoryState>,
     desired_retention: f64,
     days_elapsed: u32,
-  ) -> NextStates {
+  ) -> Result<NextStates> {
     let locked_model = self.0.lock().unwrap();
-    NextStates(
+    Ok(NextStates(
       locked_model
         .next_states(
           current_memory_state.map(|x| x.0),
           desired_retention as f32,
           days_elapsed,
         )
-        .unwrap(),
+        .map_err(|e| fsrs_error("nextStates", e))?,
+    ))
+  }
+
+  #[napi]
+  pub fn next_interval(&self, stability: Option<f64>, desired_retention: f64, rating: u32) -> f32 {
+    let locked_model = self.0.lock().unwrap();
+    locked_model.next_interval(
+      stability.map(|value| value as f32),
+      desired_retention as f32,
+      rating,
     )
   }
 
@@ -151,28 +331,19 @@ impl FSRS {
     &self,
     train_set: Vec<&FSRSItem>,
     #[napi(ts_arg_type = "ComputeParametersOption")] options: Option<ComputeParametersOption>,
-  ) -> Vec<f32> {
-    let locked_model = self.0.lock().unwrap();
-    locked_model.benchmark(fsrs::ComputeParametersInput {
-      train_set: train_set.into_iter().map(|x| x.0.clone()).collect(),
-      progress: None,
-      enable_short_term: options
-        .as_ref()
-        .map(|x| x.enable_short_term)
-        .unwrap_or(true),
-      num_relearning_steps: options
-        .as_ref()
-        .and_then(|x| x.num_relearning_steps)
-        .and_then(|x| x.get_int64().ok())
-        .map(|x| x as usize),
-    })
+  ) -> Result<Vec<f32>> {
+    Ok(fsrs::benchmark(compute_parameters_input(
+      train_set,
+      options.as_ref(),
+      None,
+    )?))
   }
 
   /// Determine how well the model and parameters predict performance.
   ///
   /// Parameters must have been provided when calling [`new FSRS()`]{@link constructor}.
   #[napi]
-  pub fn evaluate(&self, env: Env, train_set: Vec<&FSRSItem>) -> Result<ModelEvaluation> {
+  pub fn evaluate(&self, train_set: Vec<&FSRSItem>) -> Result<ModelEvaluation> {
     // Convert your `JS` training items to owned `fsrs::FSRSItem`
     let train_data = train_set
       .into_iter()
@@ -183,10 +354,7 @@ impl FSRS {
     let result = locked_model
       .evaluate(train_data, |_| true)
       .map_err(|e| napi::Error::from_reason(format!("FSRS evaluate failed: {e}")))?;
-    Ok(ModelEvaluation {
-      log_loss: env.create_double(result.log_loss as f64)?,
-      rmse_bins: env.create_double(result.rmse_bins as f64)?,
-    })
+    Ok(result.into())
   }
 
   /// If a card has incomplete learning history, memory state can be approximated from
@@ -199,13 +367,13 @@ impl FSRS {
     ease_factor: f64,
     interval: f64,
     sm2_retention: f64,
-  ) -> MemoryState {
+  ) -> Result<MemoryState> {
     let locked_model = self.0.lock().unwrap();
-    MemoryState(
+    Ok(MemoryState(
       locked_model
         .memory_state_from_sm2(ease_factor as f32, interval as f32, sm2_retention as f32)
-        .unwrap(),
-    )
+        .map_err(|e| fsrs_error("memoryStateFromSm2", e))?,
+    ))
   }
 
   /// Calculate the current memory state for a given card's history of reviews.
@@ -215,13 +383,77 @@ impl FSRS {
   ///
   /// Parameters must have been provided when calling [`new FSRS()`]{@link constructor}.
   #[napi]
-  pub fn memory_state(&self, item: &FSRSItem, starting_state: Option<&MemoryState>) -> MemoryState {
+  pub fn memory_state(
+    &self,
+    item: &FSRSItem,
+    starting_state: Option<&MemoryState>,
+  ) -> Result<MemoryState> {
     let locked_model = self.0.lock().unwrap();
-    MemoryState(
+    Ok(MemoryState(
       locked_model
         .memory_state(item.0.clone(), starting_state.map(|x| x.0))
-        .unwrap(),
-    )
+        .map_err(|e| fsrs_error("memoryState", e))?,
+    ))
+  }
+
+  #[napi]
+  pub fn memory_state_batch(
+    &self,
+    items: Vec<&FSRSItem>,
+    #[napi(ts_arg_type = "Array<MemoryState | null | undefined>")] starting_states: Option<
+      Vec<Option<&MemoryState>>,
+    >,
+  ) -> Result<Vec<MemoryState>> {
+    let starting_states = convert_starting_states(starting_states, items.len());
+    let locked_model = self.0.lock().unwrap();
+    locked_model
+      .memory_state_batch(
+        items.into_iter().map(|item| item.0.clone()).collect(),
+        starting_states,
+      )
+      .map(|states| states.into_iter().map(MemoryState).collect())
+      .map_err(|e| fsrs_error("memoryStateBatch", e))
+  }
+
+  #[napi]
+  pub fn historical_memory_states(
+    &self,
+    item: &FSRSItem,
+    starting_state: Option<&MemoryState>,
+  ) -> Result<Vec<MemoryState>> {
+    let locked_model = self.0.lock().unwrap();
+    locked_model
+      .historical_memory_states(item.0.clone(), starting_state.map(|x| x.0))
+      .map(|states| states.into_iter().map(MemoryState).collect())
+      .map_err(|e| fsrs_error("historicalMemoryStates", e))
+  }
+
+  #[napi]
+  pub fn historical_memory_state_batch(
+    &self,
+    items: Vec<&FSRSItem>,
+    #[napi(ts_arg_type = "Array<MemoryState | null | undefined>")] starting_states: Option<
+      Vec<Option<&MemoryState>>,
+    >,
+  ) -> Result<Vec<Vec<MemoryState>>> {
+    let locked_model = self.0.lock().unwrap();
+    locked_model
+      .historical_memory_state_batch(
+        items.into_iter().map(|item| item.0.clone()).collect(),
+        starting_states.map(|states| {
+          states
+            .into_iter()
+            .map(|state| state.map(|state| state.0))
+            .collect()
+        }),
+      )
+      .map(|rows| {
+        rows
+          .into_iter()
+          .map(|row| row.into_iter().map(MemoryState).collect())
+          .collect()
+      })
+      .map_err(|e| fsrs_error("historicalMemoryStateBatch", e))
   }
 }
 
@@ -274,6 +506,11 @@ impl FSRSItem {
   #[napi(getter)]
   pub fn reviews(&self) -> Vec<FSRSReview> {
     self.0.reviews.iter().map(|x| FSRSReview(*x)).collect()
+  }
+
+  #[napi(setter)]
+  pub fn set_reviews(&mut self, reviews: Vec<&FSRSReview>) {
+    self.0.reviews = reviews.iter().map(|x| x.0).collect();
   }
 
   #[napi]
@@ -360,21 +597,266 @@ impl ItemState {
 }
 
 #[napi(object)]
+pub struct TrainingConfig {
+  pub num_epochs: Option<JsNumber>,
+  pub batch_size: Option<JsNumber>,
+  pub seed: Option<JsNumber>,
+  pub learning_rate: Option<JsNumber>,
+  pub max_seq_len: Option<JsNumber>,
+  pub gamma: Option<JsNumber>,
+}
+
+#[napi(object)]
+pub struct SimulationResult {
+  pub memorized_cnt_per_day: Vec<f64>,
+  pub review_cnt_per_day: Vec<u32>,
+  pub learn_cnt_per_day: Vec<u32>,
+  pub cost_per_day: Vec<f64>,
+  pub correct_cnt_per_day: Vec<u32>,
+  pub average_desired_retention: Option<f64>,
+  pub introduced_cnt_per_day: Vec<u32>,
+}
+
+impl From<fsrs::SimulationResult> for SimulationResult {
+  fn from(result: fsrs::SimulationResult) -> Self {
+    Self {
+      memorized_cnt_per_day: result
+        .memorized_cnt_per_day
+        .into_iter()
+        .map(f64::from)
+        .collect(),
+      review_cnt_per_day: result
+        .review_cnt_per_day
+        .iter()
+        .map(|&value| value as u32)
+        .collect(),
+      learn_cnt_per_day: result
+        .learn_cnt_per_day
+        .iter()
+        .map(|&value| value as u32)
+        .collect(),
+      cost_per_day: result.cost_per_day.into_iter().map(f64::from).collect(),
+      correct_cnt_per_day: result
+        .correct_cnt_per_day
+        .iter()
+        .map(|&value| value as u32)
+        .collect(),
+      average_desired_retention: result.average_desired_retention.map(f64::from),
+      introduced_cnt_per_day: result
+        .introduced_cnt_per_day
+        .iter()
+        .map(|&value| value as u32)
+        .collect(),
+    }
+  }
+}
+
+#[napi(object)]
+pub struct SimulatorConfig {
+  pub deck_size: u32,
+  pub learn_span: u32,
+  pub max_cost_perday: f64,
+  pub max_ivl: f64,
+  pub first_rating_prob: Vec<f64>,
+  pub review_rating_prob: Vec<f64>,
+  pub learn_limit: u32,
+  pub review_limit: u32,
+  pub new_cards_ignore_review_limit: bool,
+  pub learning_step_transitions: Vec<Vec<f64>>,
+  pub relearning_step_transitions: Vec<Vec<f64>>,
+  pub state_rating_costs: Vec<Vec<f64>>,
+  pub learning_step_count: u32,
+  pub relearning_step_count: u32,
+  pub suspend_after_lapses: Option<u32>,
+}
+
+impl SimulatorConfig {
+  fn into_fsrs(self) -> Result<fsrs::SimulatorConfig> {
+    Ok(fsrs::SimulatorConfig {
+      deck_size: self.deck_size as usize,
+      learn_span: self.learn_span as usize,
+      max_cost_perday: self.max_cost_perday as f32,
+      max_ivl: self.max_ivl as f32,
+      first_rating_prob: vec_to_array(self.first_rating_prob, "firstRatingProb")?,
+      review_rating_prob: vec_to_array(self.review_rating_prob, "reviewRatingProb")?,
+      learn_limit: self.learn_limit as usize,
+      review_limit: self.review_limit as usize,
+      new_cards_ignore_review_limit: self.new_cards_ignore_review_limit,
+      suspend_after_lapses: self.suspend_after_lapses,
+      post_scheduling_fn: None,
+      review_priority_fn: None,
+      learning_step_transitions: matrix_to_array(
+        self.learning_step_transitions,
+        "learningStepTransitions",
+      )?,
+      relearning_step_transitions: matrix_to_array(
+        self.relearning_step_transitions,
+        "relearningStepTransitions",
+      )?,
+      state_rating_costs: matrix_to_array(self.state_rating_costs, "stateRatingCosts")?,
+      learning_step_count: self.learning_step_count as usize,
+      relearning_step_count: self.relearning_step_count as usize,
+    })
+  }
+}
+
+impl From<fsrs::SimulatorConfig> for SimulatorConfig {
+  fn from(config: fsrs::SimulatorConfig) -> Self {
+    Self {
+      deck_size: config.deck_size as u32,
+      learn_span: config.learn_span as u32,
+      max_cost_perday: config.max_cost_perday as f64,
+      max_ivl: config.max_ivl as f64,
+      first_rating_prob: array_to_vec(config.first_rating_prob),
+      review_rating_prob: array_to_vec(config.review_rating_prob),
+      learn_limit: config.learn_limit as u32,
+      review_limit: config.review_limit as u32,
+      new_cards_ignore_review_limit: config.new_cards_ignore_review_limit,
+      learning_step_transitions: matrix_to_vec(config.learning_step_transitions),
+      relearning_step_transitions: matrix_to_vec(config.relearning_step_transitions),
+      state_rating_costs: matrix_to_vec(config.state_rating_costs),
+      learning_step_count: config.learning_step_count as u32,
+      relearning_step_count: config.relearning_step_count as u32,
+      suspend_after_lapses: config.suspend_after_lapses,
+    }
+  }
+}
+
+#[napi(object)]
 pub struct ModelEvaluation {
-  pub log_loss: JsNumber,
-  pub rmse_bins: JsNumber,
+  pub log_loss: f64,
+  pub rmse_bins: f64,
+}
+
+impl From<fsrs::ModelEvaluation> for ModelEvaluation {
+  fn from(result: fsrs::ModelEvaluation) -> Self {
+    Self {
+      log_loss: result.log_loss as f64,
+      rmse_bins: result.rmse_bins as f64,
+    }
+  }
 }
 
 #[napi(object)]
 pub struct ComputeParametersOption {
   /// Whether to enable short-term memory parameters
-  pub enable_short_term: bool,
+  pub enable_short_term: Option<bool>,
   /// Number of relearning steps
   pub num_relearning_steps: Option<JsNumber>,
+  /// Optional card ids aligned with `trainSet`.
+  #[napi(ts_type = "Array<number>")]
+  pub card_ids: Option<Vec<JsNumber>>,
+  /// Optional optimizer hyperparameters
+  pub training_config: Option<TrainingConfig>,
   #[napi(
     ts_type = "(err: Error | null , value: { current: number, total: number, percent: number }) => void"
   )]
   pub progress: Option<JsFunction>,
   #[napi(ts_type = "number")]
   pub timeout: Option<JsNumber>,
+}
+
+#[napi(js_name = "FilterOutlierResult")]
+pub struct FilterOutlierResult {
+  dataset_for_initialization: Vec<fsrs::FSRSItem>,
+  trainset: Vec<fsrs::FSRSItem>,
+}
+
+#[napi]
+impl FilterOutlierResult {
+  #[napi(getter)]
+  pub fn dataset_for_initialization(&self) -> Vec<FSRSItem> {
+    self
+      .dataset_for_initialization
+      .iter()
+      .cloned()
+      .map(FSRSItem)
+      .collect()
+  }
+
+  #[napi(getter)]
+  pub fn trainset(&self) -> Vec<FSRSItem> {
+    self.trainset.iter().cloned().map(FSRSItem).collect()
+  }
+}
+
+#[napi]
+pub fn default_simulator_config() -> SimulatorConfig {
+  fsrs::SimulatorConfig::default().into()
+}
+
+#[napi]
+pub fn simulate(
+  w: Vec<JsNumber>,
+  desired_retention: f64,
+  config: Option<SimulatorConfig>,
+  seed: Option<JsNumber>,
+) -> Result<SimulationResult> {
+  let config = match config {
+    Some(config) => config.into_fsrs()?,
+    None => fsrs::SimulatorConfig::default(),
+  };
+  let seed = seed
+    .as_ref()
+    .map(|seed| {
+      js_number_to_u64(seed).ok_or_else(|| napi_error("seed must be a non-negative integer"))
+    })
+    .transpose()?;
+
+  fsrs::simulate(
+    &config,
+    &vec_to_f32(w)?,
+    desired_retention as f32,
+    seed,
+    None,
+  )
+  .map(SimulationResult::from)
+  .map_err(|e| fsrs_error("simulate", e))
+}
+
+#[napi]
+pub fn evaluate_with_time_series_splits(
+  train_set: Vec<&FSRSItem>,
+  #[napi(ts_arg_type = "ComputeParametersOption")] options: Option<ComputeParametersOption>,
+) -> Result<ModelEvaluation> {
+  let result = fsrs::evaluate_with_time_series_splits(
+    compute_parameters_input(train_set, options.as_ref(), None)?,
+    |_| true,
+  )
+  .map_err(|e| fsrs_error("evaluateWithTimeSeriesSplits", e))?;
+
+  Ok(result.into())
+}
+
+#[napi]
+pub fn filter_outlier(
+  dataset_for_initialization: Vec<&FSRSItem>,
+  trainset: Vec<&FSRSItem>,
+) -> Result<FilterOutlierResult> {
+  if dataset_for_initialization
+    .iter()
+    .chain(trainset.iter())
+    .any(|item| item.0.reviews.is_empty())
+  {
+    return Err(napi_error("FSRSItem reviews must not be empty"));
+  }
+
+  let (dataset_for_initialization, trainset) = fsrs::filter_outlier(
+    dataset_for_initialization
+      .into_iter()
+      .map(|item| item.0.clone())
+      .collect(),
+    trainset.into_iter().map(|item| item.0.clone()).collect(),
+  );
+
+  Ok(FilterOutlierResult {
+    dataset_for_initialization,
+    trainset,
+  })
+}
+
+#[napi]
+pub fn check_and_fill_parameters(parameters: Vec<JsNumber>) -> Result<Vec<f32>> {
+  fsrs::check_and_fill_parameters(&vec_to_f32(parameters)?)
+    .map_err(|e| fsrs_error("checkAndFillParameters", e))
 }
