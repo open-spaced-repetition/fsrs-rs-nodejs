@@ -1,4 +1,6 @@
-import nativeBinding from './index.cjs'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
 
 const {
   FSRS,
@@ -16,7 +18,7 @@ const {
   evaluateWithTimeSeriesSplits,
   filterOutlier,
   checkAndFillParameters,
-} = nativeBinding
+} = require('./index.cjs')
 
 export {
   FSRS,
