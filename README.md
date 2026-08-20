@@ -111,9 +111,16 @@ $ ava --verbose
 
 ## Release package
 
-Ensure you have set your **NPM_TOKEN** in the `GitHub` project setting.
+Publishing uses npm trusted publishing (OIDC), so the workflow does not need a long-lived `NPM_TOKEN` secret. In the
+npm settings for `fsrs-rs-nodejs` and every platform package under [`npm`](./npm), configure this trusted publisher:
 
-In `Settings -> Secrets`, add **NPM_TOKEN** into it.
+- Provider: GitHub Actions
+- Organization: `open-spaced-repetition`
+- Repository: `fsrs-rs-nodejs`
+- Workflow filename: `CI.yml`
+- Allowed action: `npm publish`
+
+Leave the environment name empty. The organization, repository, and workflow filename are case-sensitive.
 
 When you want to release the package:
 
@@ -123,4 +130,6 @@ npm version [<newversion> | major | minor | patch | premajor | preminor | prepat
 git push
 ```
 
-GitHub actions will do the rest job for you.
+GitHub Actions builds and tests every native target, publishes versions that are not already on npm, and uploads the
+native binaries to the matching GitHub release. Stable versions receive the npm `latest` tag; versions containing a
+prerelease suffix receive the `next` tag. The CI workflow can also be run manually on `main` to retry a failed release.
