@@ -18,7 +18,7 @@ version = "6.6.0"
 # rev = "9b2f2f72f68e7fbddf1aff3ca0271d6ee26702e6"
 
 [dependencies]
-napi           = { version = "2", features = ['async'] }
+napi           = { version = "3", features = ['async'] }
 napi-derive    = "2"
 
 [build-dependencies]
