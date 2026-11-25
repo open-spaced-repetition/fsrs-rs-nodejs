@@ -1,4 +1,4 @@
-import { FSRSItem, FSRSReview, DEFAULT_PARAMETERS, FSRS } from '../index.js'
+import { FSRSItem, FSRSReview, DEFAULT_PARAMETERS, ModelVersion, computeParameters } from '../index.js'
 
 function progress(err, progressValue) {
   if (err) {
@@ -15,12 +15,12 @@ async function main() {
   const fsrsItems = reviewHistoriesOfCards.flatMap(convertToFSRSItem)
   console.log(`Size of FSRSItems: ${fsrsItems.length}`)
 
-  // Create an FSRS instance with default parameters
-  const fsrs = new FSRS(null) // Assuming you're not using any existing parameters
   console.log('Default parameters:', DEFAULT_PARAMETERS)
 
-  // Optimize the FSRS model using the created items
-  const optimizedParameters = await fsrs.computeParameters(fsrsItems, {
+  // Optimize the FSRS parameters using the created items
+  const optimizedParameters = await computeParameters(fsrsItems, {
+    // FSRS-7 is the default; use ModelVersion.Fsrs6 to compute 21 FSRS-6 parameters.
+    modelVersion: ModelVersion.Fsrs7,
     enableShortTerm: true,
     progress,
   })

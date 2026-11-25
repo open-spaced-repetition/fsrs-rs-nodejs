@@ -17,39 +17,42 @@ pub struct FSRS(Arc<Mutex<fsrs::FSRS>>);
 pub const FSRS5_DEFAULT_DECAY: f32 = 0.5;
 #[napi]
 pub const FSRS6_DEFAULT_DECAY: f32 = 0.1542;
+/// FSRS-7 default parameters (34 values), the same as `fsrs::DEFAULT_PARAMETERS`.
+///
+/// These are the parameters used by `new FSRS()` and `new FSRS([])`.
 #[napi]
-/// directly use fsrs::DEFAULT_PARAMETERS will cause error.
-/// referencing statics in constants is unstable
-/// see issue #119618 <https://github.com/rust-lang/rust/issues/119618> for more information
-/// `static` and `const` variables can refer to other `const` variables. A `const` variable, however, cannot refer to a `static` variable.
-/// to fix this, the value can be extracted to a `const` and then used.
-pub const DEFAULT_PARAMETERS: [f32; 21] = [
-  0.212,
-  1.2931,
-  2.3065,
-  8.2956,
-  6.4133,
-  0.8334,
-  3.0194,
-  0.001,
-  1.8722,
-  0.1666,
-  0.796,
-  1.4835,
-  0.0614,
-  0.2629,
-  1.6483,
-  0.6014,
-  1.8729,
-  0.5425,
-  0.0912,
-  0.0658,
-  FSRS6_DEFAULT_DECAY,
-];
+pub const DEFAULT_PARAMETERS: [f32; 34] = fsrs::DEFAULT_PARAMETERS;
+/// Alias of {@link DEFAULT_PARAMETERS}: the FSRS-7 default parameters (34 values).
+#[napi]
+pub const FSRS7_DEFAULT_PARAMETERS: [f32; 34] = DEFAULT_PARAMETERS;
+/// FSRS-6 default parameters (21 values), the same as `fsrs::FSRS6_DEFAULT_PARAMETERS`.
+#[napi]
+pub const FSRS6_DEFAULT_PARAMETERS: [f32; 21] = fsrs::FSRS6_DEFAULT_PARAMETERS;
 
-impl Default for FSRS {
-  fn default() -> Self {
-    Self(Arc::new(Mutex::new(fsrs::FSRS::default())))
+/// The FSRS algorithm version used by a model.
+#[napi(string_enum)]
+pub enum ModelVersion {
+  #[napi(value = "FSRS-6")]
+  Fsrs6,
+  #[napi(value = "FSRS-7")]
+  Fsrs7,
+}
+
+impl From<fsrs::ModelVersion> for ModelVersion {
+  fn from(version: fsrs::ModelVersion) -> Self {
+    match version {
+      fsrs::ModelVersion::Fsrs6 => Self::Fsrs6,
+      fsrs::ModelVersion::Fsrs7 => Self::Fsrs7,
+    }
+  }
+}
+
+impl From<ModelVersion> for fsrs::ComputeParametersVersion {
+  fn from(version: ModelVersion) -> Self {
+    match version {
+      ModelVersion::Fsrs6 => Self::Fsrs6,
+      ModelVersion::Fsrs7 => Self::Fsrs7,
+    }
   }
 }
 
@@ -149,8 +152,14 @@ fn matrix_to_vec<const ROWS: usize, const COLS: usize>(
   values.into_iter().map(array_to_vec).collect()
 }
 
-fn enable_short_term_from_options(options: Option<&ComputeParametersOption>) -> bool {
-  options.and_then(|x| x.enable_short_term).unwrap_or(true)
+/// FSRS-7 has no parameter pre-training, so training without short-term memory would freeze the
+/// initial stability at its defaults. FSRS-7 therefore always enables it and ignores `false`.
+fn enable_short_term_from_options(
+  options: Option<&ComputeParametersOption>,
+  model_version: fsrs::ComputeParametersVersion,
+) -> bool {
+  model_version == fsrs::ComputeParametersVersion::Fsrs7
+    || options.and_then(|x| x.enable_short_term).unwrap_or(true)
 }
 
 fn num_relearning_steps_from_options(options: Option<&ComputeParametersOption>) -> Option<usize> {
@@ -178,11 +187,36 @@ fn card_ids_from_options(options: Option<&ComputeParametersOption>) -> Result<Op
     .transpose()
 }
 
+/// Defaults to FSRS-7, like `fsrs::ComputeParametersVersion::default()`.
+fn model_version_from_options(
+  options: Option<&ComputeParametersOption>,
+) -> fsrs::ComputeParametersVersion {
+  options
+    .and_then(|x| x.model_version)
+    .map_or_else(fsrs::ComputeParametersVersion::default, Into::into)
+}
+
+/// Schedule penalties only exist in FSRS-7, so they are always disabled for FSRS-6.
+fn enable_sched_penalties_from_options(
+  options: Option<&ComputeParametersOption>,
+  model_version: fsrs::ComputeParametersVersion,
+) -> bool {
+  model_version == fsrs::ComputeParametersVersion::Fsrs7
+    && options
+      .and_then(|x| x.enable_sched_penalties)
+      .unwrap_or(false)
+}
+
 fn training_config_from_options(
   options: Option<&ComputeParametersOption>,
+  model_version: fsrs::ComputeParametersVersion,
 ) -> Result<Option<fsrs::TrainingConfig>> {
   let Some(options) = options.and_then(|x| x.training_config.as_ref()) else {
-    return Ok(None);
+    // Without a training config, fsrs 7 trains FSRS-6 with the FSRS-7 hyperparameters.
+    // Pass the default config to keep the FSRS-6 defaults (5 epochs, learning rate 0.04).
+    return Ok(
+      (model_version == fsrs::ComputeParametersVersion::Fsrs6).then(fsrs::TrainingConfig::default),
+    );
   };
   let mut config = fsrs::TrainingConfig::default();
 
@@ -213,13 +247,16 @@ fn compute_parameters_input(
   options: Option<&ComputeParametersOption>,
   progress: Option<Arc<Mutex<fsrs::CombinedProgressState>>>,
 ) -> Result<fsrs::ComputeParametersInput> {
+  let model_version = model_version_from_options(options);
   Ok(fsrs::ComputeParametersInput {
     train_set: train_set.into_iter().map(|x| x.0.clone()).collect(),
     card_ids: card_ids_from_options(options)?,
     progress,
-    enable_short_term: enable_short_term_from_options(options),
+    enable_short_term: enable_short_term_from_options(options, model_version),
+    enable_sched_penalties: enable_sched_penalties_from_options(options, model_version),
+    model_version,
     num_relearning_steps: num_relearning_steps_from_options(options),
-    training_config: training_config_from_options(options)?,
+    training_config: training_config_from_options(options, model_version)?,
   })
 }
 
@@ -241,7 +278,10 @@ fn convert_starting_states(
 #[napi]
 impl FSRS {
   /// - Parameters must be provided before running commands that need them.
-  /// - Parameters may be an empty array to use the default values instead.
+  /// - Parameters may be omitted or an empty array to use the FSRS-7 defaults
+  ///   ({@link DEFAULT_PARAMETERS}).
+  /// - The parameter count selects the model version: 17, 19 or 21 values select FSRS-6
+  ///   (17 and 19 are expanded to 21), 34 values select FSRS-7.
   #[napi(constructor, catch_unwind)]
   pub fn new(parameters: Option<Vec<JsNumber>>) -> Result<Self> {
     let params = js_numbers_to_f32(parameters.unwrap_or_default())?;
@@ -250,51 +290,16 @@ impl FSRS {
     Ok(Self(Arc::new(Mutex::new(model))))
   }
 
-  /// Calculate appropriate parameters for the provided review history.
-  #[napi(ts_return_type = "Promise<Array<number>>")]
-  pub fn compute_parameters(
-    &self,
-    train_set: Vec<&FSRSItem>,
-    #[napi(ts_arg_type = "ComputeParametersOption")] options: Option<ComputeParametersOption>,
-  ) -> Result<AsyncTask<ComputeParametersTask>> {
-    // Convert your `JS` training items to owned `fsrs::FSRSItem`
-    let train_data = train_set
-      .into_iter()
-      .map(|item| item.0.clone())
-      .collect::<Vec<_>>();
-
-    // Turn `JsFunction` into a `ThreadsafeFunction`
-    let fn_form_js = if let Some(callback) = options.as_ref().and_then(|x| x.progress.as_ref()) {
-      Some(callback.create_threadsafe_function(0, |ctx| {
-        let progress_data: ProgressData = ctx.value;
-        let env = ctx.env;
-        let current = env.create_uint32(progress_data.current as u32)?;
-        let total = env.create_uint32(progress_data.total as u32)?;
-        let percent = env.create_double(progress_data.percent)?;
-        let mut progress_obj = env.create_object()?;
-        progress_obj.set_named_property("current", current)?;
-        progress_obj.set_named_property("total", total)?;
-        progress_obj.set_named_property("percent", percent)?;
-        Ok(vec![progress_obj])
-      })?)
-    } else {
-      None
-    };
-
-    let task = ComputeParametersTask {
-      train_data,
-      card_ids: card_ids_from_options(options.as_ref())?,
-      enable_short_term: enable_short_term_from_options(options.as_ref()),
-      num_relearning_steps: num_relearning_steps_from_options(options.as_ref()),
-      training_config: training_config_from_options(options.as_ref())?,
-      progress_callback: fn_form_js,
-      progress_timeout: progress_timeout_from_options(options.as_ref()),
-    };
-
-    Ok(AsyncTask::new(task))
+  /// The model version selected by the parameters passed to the constructor.
+  #[napi(getter)]
+  pub fn version(&self) -> ModelVersion {
+    self.0.lock().unwrap().version().into()
   }
 
   /// The intervals and memory states for each answer button.
+  ///
+  /// `daysElapsed` may be fractional. FSRS-7 uses fractional days, while FSRS-6 rounds them to
+  /// whole days.
   ///
   /// Parameters must have been provided when calling [`new FSRS()`]{@link constructor}.
   #[napi]
@@ -302,20 +307,22 @@ impl FSRS {
     &self,
     current_memory_state: Option<&MemoryState>,
     desired_retention: f64,
-    days_elapsed: u32,
+    days_elapsed: f64,
   ) -> Result<NextStates> {
     let locked_model = self.0.lock().unwrap();
+    // The FSRS-6 model rounds the elapsed days itself.
     Ok(NextStates(
       locked_model
-        .next_states(
+        .next_states_with_elapsed_days(
           current_memory_state.map(|x| x.0),
           desired_retention as f32,
-          days_elapsed,
+          days_elapsed as f32,
         )
         .map_err(|e| fsrs_error("nextStates", e))?,
     ))
   }
 
+  /// For FSRS-7, the fast stability is assumed to equal `stability`.
   #[napi]
   pub fn next_interval(&self, stability: Option<f64>, desired_retention: f64, rating: u32) -> f32 {
     let locked_model = self.0.lock().unwrap();
@@ -324,19 +331,6 @@ impl FSRS {
       desired_retention as f32,
       rating,
     )
-  }
-
-  #[napi]
-  pub fn benchmark(
-    &self,
-    train_set: Vec<&FSRSItem>,
-    #[napi(ts_arg_type = "ComputeParametersOption")] options: Option<ComputeParametersOption>,
-  ) -> Result<Vec<f32>> {
-    Ok(fsrs::benchmark(compute_parameters_input(
-      train_set,
-      options.as_ref(),
-      None,
-    )?))
   }
 
   /// Determine how well the model and parameters predict performance.
@@ -463,21 +457,26 @@ pub struct FSRSReview(fsrs::FSRSReview);
 
 #[napi]
 impl FSRSReview {
+  /// `deltaT` may be fractional. FSRS-7 uses fractional days, while FSRS-6 rounds them to
+  /// whole days when updating memory states and when training.
   #[napi(constructor)]
-  pub fn new(rating: u32, delta_t: u32) -> Self {
-    Self(fsrs::FSRSReview { rating, delta_t })
+  pub fn new(rating: u32, delta_t: f64) -> Self {
+    Self(fsrs::FSRSReview {
+      rating,
+      delta_t: delta_t as f32,
+    })
   }
   /// 1-4
   #[napi(getter)]
   pub fn rating(&self) -> u32 {
     self.0.rating
   }
-  /// The number of days that passed
+  /// The number of days that passed (can be fractional)
   /// # Warning
   /// `delta_t` for item first(initial) review must be 0
   #[napi(getter)]
-  pub fn delta_t(&self) -> u32 {
-    self.0.delta_t
+  pub fn delta_t(&self) -> f64 {
+    self.0.delta_t as f64
   }
   #[napi(js_name = "toJSON")]
   pub fn to_json(&self) -> String {
@@ -529,11 +528,13 @@ impl FSRSItem {
 pub struct MemoryState(fsrs::MemoryState);
 #[napi]
 impl MemoryState {
+  /// `stabilityFast` is only used by FSRS-7 and defaults to `stability`.
   #[napi(constructor)]
-  pub fn new(stability: f64, difficulty: f64) -> Self {
+  pub fn new(stability: f64, difficulty: f64, stability_fast: Option<f64>) -> Self {
     Self(fsrs::MemoryState {
       stability: stability as f32,
       difficulty: difficulty as f32,
+      stability_fast: stability_fast.unwrap_or(stability) as f32,
     })
   }
   #[napi(getter)]
@@ -543,6 +544,11 @@ impl MemoryState {
   #[napi(getter)]
   pub fn difficulty(&self) -> f64 {
     self.0.difficulty as f64
+  }
+  /// The FSRS-7 fast stability. FSRS-6 ignores it and returns states where it equals `stability`.
+  #[napi(getter)]
+  pub fn stability_fast(&self) -> f64 {
+    self.0.stability_fast as f64
   }
   #[napi(js_name = "toJSON")]
   pub fn to_json(&self) -> String {
@@ -596,11 +602,14 @@ impl ItemState {
   }
 }
 
+/// Omitted fields use the defaults of `fsrs::TrainingConfig`.
 #[napi(object)]
 pub struct TrainingConfig {
+  /// 0 (the default) means the model version's default: 9 for FSRS-7, 5 for FSRS-6.
   pub num_epochs: Option<JsNumber>,
   pub batch_size: Option<JsNumber>,
   pub seed: Option<JsNumber>,
+  /// 0 (the default) means the model version's default: 0.0118 for FSRS-7, 0.04 for FSRS-6.
   pub learning_rate: Option<JsNumber>,
   pub max_seq_len: Option<JsNumber>,
   pub gamma: Option<JsNumber>,
@@ -613,12 +622,18 @@ pub struct SimulationResult {
   pub learn_cnt_per_day: Vec<u32>,
   pub cost_per_day: Vec<f64>,
   pub correct_cnt_per_day: Vec<u32>,
+  /// The desired retention passed to `simulate`, or `undefined` when no card was learned or
+  /// reviewed. Every simulated card uses the same desired retention.
   pub average_desired_retention: Option<f64>,
   pub introduced_cnt_per_day: Vec<u32>,
 }
 
-impl From<fsrs::SimulationResult> for SimulationResult {
-  fn from(result: fsrs::SimulationResult) -> Self {
+impl SimulationResult {
+  /// fsrs 7 no longer reports the average desired retention. `simulate` gives every card the
+  /// same desired retention, so the average is that value whenever any card was simulated.
+  fn new(result: fsrs::SimulationResult, desired_retention: f32) -> Self {
+    let simulated_cards = result.learn_cnt_per_day.iter().sum::<usize>()
+      + result.review_cnt_per_day.iter().sum::<usize>();
     Self {
       memorized_cnt_per_day: result
         .memorized_cnt_per_day
@@ -641,7 +656,7 @@ impl From<fsrs::SimulationResult> for SimulationResult {
         .iter()
         .map(|&value| value as u32)
         .collect(),
-      average_desired_retention: result.average_desired_retention.map(f64::from),
+      average_desired_retention: (simulated_cards > 0).then_some(f64::from(desired_retention)),
       introduced_cnt_per_day: result
         .introduced_cnt_per_day
         .iter()
@@ -685,6 +700,7 @@ impl SimulatorConfig {
       suspend_after_lapses: self.suspend_after_lapses,
       post_scheduling_fn: None,
       review_priority_fn: None,
+      review_rating_cost_fn: None,
       learning_step_transitions: matrix_to_array(
         self.learning_step_transitions,
         "learningStepTransitions",
@@ -739,8 +755,15 @@ impl From<fsrs::ModelEvaluation> for ModelEvaluation {
 
 #[napi(object)]
 pub struct ComputeParametersOption {
-  /// Whether to enable short-term memory parameters
+  /// Model version to train or evaluate. Defaults to FSRS-7, matching fsrs-rs.
+  #[napi(ts_type = "`${ModelVersion}`")]
+  pub model_version: Option<ModelVersion>,
+  /// Whether to enable short-term memory parameters. Defaults to true. Only FSRS-6 can disable
+  /// them: FSRS-7 always enables short-term memory and ignores `false`.
   pub enable_short_term: Option<bool>,
+  /// Whether to enable the FSRS-7 schedule penalties during training. Defaults to false;
+  /// ignored by FSRS-6.
+  pub enable_sched_penalties: Option<bool>,
   /// Number of relearning steps
   pub num_relearning_steps: Option<JsNumber>,
   /// Optional card ids aligned with `trainSet`.
@@ -803,15 +826,70 @@ pub fn simulate(
     })
     .transpose()?;
 
-  fsrs::simulate(
-    &config,
-    &vec_to_f32(w)?,
-    desired_retention as f32,
-    seed,
+  let desired_retention = desired_retention as f32;
+  fsrs::simulate(&config, &vec_to_f32(w)?, desired_retention, seed, None)
+    .map(|result| SimulationResult::new(result, desired_retention))
+    .map_err(|e| fsrs_error("simulate", e))
+}
+
+/// Calculate appropriate parameters for the provided review history.
+///
+/// `options.modelVersion` selects the version to train and defaults to FSRS-7.
+#[napi(ts_return_type = "Promise<Array<number>>")]
+pub fn compute_parameters(
+  train_set: Vec<&FSRSItem>,
+  #[napi(ts_arg_type = "ComputeParametersOption")] options: Option<ComputeParametersOption>,
+) -> Result<AsyncTask<ComputeParametersTask>> {
+  // Convert your `JS` training items to owned `fsrs::FSRSItem`
+  let train_data = train_set
+    .into_iter()
+    .map(|item| item.0.clone())
+    .collect::<Vec<_>>();
+
+  // Turn `JsFunction` into a `ThreadsafeFunction`
+  let fn_form_js = if let Some(callback) = options.as_ref().and_then(|x| x.progress.as_ref()) {
+    Some(callback.create_threadsafe_function(0, |ctx| {
+      let progress_data: ProgressData = ctx.value;
+      let env = ctx.env;
+      let current = env.create_uint32(progress_data.current as u32)?;
+      let total = env.create_uint32(progress_data.total as u32)?;
+      let percent = env.create_double(progress_data.percent)?;
+      let mut progress_obj = env.create_object()?;
+      progress_obj.set_named_property("current", current)?;
+      progress_obj.set_named_property("total", total)?;
+      progress_obj.set_named_property("percent", percent)?;
+      Ok(vec![progress_obj])
+    })?)
+  } else {
+    None
+  };
+
+  let model_version = model_version_from_options(options.as_ref());
+  let task = ComputeParametersTask {
+    train_data,
+    card_ids: card_ids_from_options(options.as_ref())?,
+    enable_short_term: enable_short_term_from_options(options.as_ref(), model_version),
+    enable_sched_penalties: enable_sched_penalties_from_options(options.as_ref(), model_version),
+    model_version,
+    num_relearning_steps: num_relearning_steps_from_options(options.as_ref()),
+    training_config: training_config_from_options(options.as_ref(), model_version)?,
+    progress_callback: fn_form_js,
+    progress_timeout: progress_timeout_from_options(options.as_ref()),
+  };
+
+  Ok(AsyncTask::new(task))
+}
+
+#[napi]
+pub fn benchmark(
+  train_set: Vec<&FSRSItem>,
+  #[napi(ts_arg_type = "ComputeParametersOption")] options: Option<ComputeParametersOption>,
+) -> Result<Vec<f32>> {
+  Ok(fsrs::benchmark(compute_parameters_input(
+    train_set,
+    options.as_ref(),
     None,
-  )
-  .map(SimulationResult::from)
-  .map_err(|e| fsrs_error("simulate", e))
+  )?))
 }
 
 #[napi]

@@ -310,12 +310,15 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { FSRS, FSRS5_DEFAULT_DECAY, FSRS6_DEFAULT_DECAY, DEFAULT_PARAMETERS, FSRSReview, FSRSItem, MemoryState, NextStates, ItemState, FilterOutlierResult, defaultSimulatorConfig, simulate, evaluateWithTimeSeriesSplits, filterOutlier, checkAndFillParameters } = nativeBinding
+const { FSRS, FSRS5_DEFAULT_DECAY, FSRS6_DEFAULT_DECAY, DEFAULT_PARAMETERS, FSRS7_DEFAULT_PARAMETERS, FSRS6_DEFAULT_PARAMETERS, ModelVersion, FSRSReview, FSRSItem, MemoryState, NextStates, ItemState, FilterOutlierResult, defaultSimulatorConfig, simulate, computeParameters, benchmark, evaluateWithTimeSeriesSplits, filterOutlier, checkAndFillParameters } = nativeBinding
 
 module.exports.FSRS = FSRS
 module.exports.FSRS5_DEFAULT_DECAY = FSRS5_DEFAULT_DECAY
 module.exports.FSRS6_DEFAULT_DECAY = FSRS6_DEFAULT_DECAY
 module.exports.DEFAULT_PARAMETERS = DEFAULT_PARAMETERS
+module.exports.FSRS7_DEFAULT_PARAMETERS = FSRS7_DEFAULT_PARAMETERS
+module.exports.FSRS6_DEFAULT_PARAMETERS = FSRS6_DEFAULT_PARAMETERS
+module.exports.ModelVersion = ModelVersion
 module.exports.FSRSReview = FSRSReview
 module.exports.FSRSItem = FSRSItem
 module.exports.MemoryState = MemoryState
@@ -324,6 +327,8 @@ module.exports.ItemState = ItemState
 module.exports.FilterOutlierResult = FilterOutlierResult
 module.exports.defaultSimulatorConfig = defaultSimulatorConfig
 module.exports.simulate = simulate
+module.exports.computeParameters = computeParameters
+module.exports.benchmark = benchmark
 module.exports.evaluateWithTimeSeriesSplits = evaluateWithTimeSeriesSplits
 module.exports.filterOutlier = filterOutlier
 module.exports.checkAndFillParameters = checkAndFillParameters

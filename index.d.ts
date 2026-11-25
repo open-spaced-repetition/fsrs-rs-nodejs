@@ -6,17 +6,27 @@
 export const FSRS5_DEFAULT_DECAY: number
 export const FSRS6_DEFAULT_DECAY: number
 /**
- * directly use fsrs::DEFAULT_PARAMETERS will cause error.
- * referencing statics in constants is unstable
- * see issue #119618 <https://github.com/rust-lang/rust/issues/119618> for more information
- * `static` and `const` variables can refer to other `const` variables. A `const` variable, however, cannot refer to a `static` variable.
- * to fix this, the value can be extracted to a `const` and then used.
+ * FSRS-7 default parameters (34 values), the same as `fsrs::DEFAULT_PARAMETERS`.
+ *
+ * These are the parameters used by `new FSRS()` and `new FSRS([])`.
  */
 export const DEFAULT_PARAMETERS: number[]
+/** Alias of {@link DEFAULT_PARAMETERS}: the FSRS-7 default parameters (34 values). */
+export const FSRS7_DEFAULT_PARAMETERS: number[]
+/** FSRS-6 default parameters (21 values), the same as `fsrs::FSRS6_DEFAULT_PARAMETERS`. */
+export const FSRS6_DEFAULT_PARAMETERS: number[]
+/** The FSRS algorithm version used by a model. */
+export enum ModelVersion {
+  Fsrs6 = 'FSRS-6',
+  Fsrs7 = 'FSRS-7'
+}
+/** Omitted fields use the defaults of `fsrs::TrainingConfig`. */
 export interface TrainingConfig {
+  /** 0 (the default) means the model version's default: 9 for FSRS-7, 5 for FSRS-6. */
   numEpochs?: number
   batchSize?: number
   seed?: number
+  /** 0 (the default) means the model version's default: 0.0118 for FSRS-7, 0.04 for FSRS-6. */
   learningRate?: number
   maxSeqLen?: number
   gamma?: number
@@ -27,6 +37,10 @@ export interface SimulationResult {
   learnCntPerDay: Array<number>
   costPerDay: Array<number>
   correctCntPerDay: Array<number>
+  /**
+   * The desired retention passed to `simulate`, or `undefined` when no card was learned or
+   * reviewed. Every simulated card uses the same desired retention.
+   */
   averageDesiredRetention?: number
   introducedCntPerDay: Array<number>
 }
@@ -52,8 +66,18 @@ export interface ModelEvaluation {
   rmseBins: number
 }
 export interface ComputeParametersOption {
-  /** Whether to enable short-term memory parameters */
+  /** Model version to train or evaluate. Defaults to FSRS-7, matching fsrs-rs. */
+  modelVersion?: `${ModelVersion}`
+  /**
+   * Whether to enable short-term memory parameters. Defaults to true. Only FSRS-6 can disable
+   * them: FSRS-7 always enables short-term memory and ignores `false`.
+   */
   enableShortTerm?: boolean
+  /**
+   * Whether to enable the FSRS-7 schedule penalties during training. Defaults to false;
+   * ignored by FSRS-6.
+   */
+  enableSchedPenalties?: boolean
   /** Number of relearning steps */
   numRelearningSteps?: number
   /** Optional card ids aligned with `trainSet`. */
@@ -65,25 +89,38 @@ export interface ComputeParametersOption {
 }
 export declare function defaultSimulatorConfig(): SimulatorConfig
 export declare function simulate(w: Array<number>, desiredRetention: number, config?: SimulatorConfig | undefined | null, seed?: number | undefined | null): SimulationResult
+/**
+ * Calculate appropriate parameters for the provided review history.
+ *
+ * `options.modelVersion` selects the version to train and defaults to FSRS-7.
+ */
+export declare function computeParameters(trainSet: Array<FSRSItem>, options?: ComputeParametersOption): Promise<Array<number>>
+export declare function benchmark(trainSet: Array<FSRSItem>, options?: ComputeParametersOption): Array<number>
 export declare function evaluateWithTimeSeriesSplits(trainSet: Array<FSRSItem>, options?: ComputeParametersOption): ModelEvaluation
 export declare function filterOutlier(datasetForInitialization: Array<FSRSItem>, trainset: Array<FSRSItem>): FilterOutlierResult
 export declare function checkAndFillParameters(parameters: Array<number>): Array<number>
 export declare class FSRS {
   /**
    * - Parameters must be provided before running commands that need them.
-   * - Parameters may be an empty array to use the default values instead.
+   * - Parameters may be omitted or an empty array to use the FSRS-7 defaults
+   *   ({@link DEFAULT_PARAMETERS}).
+   * - The parameter count selects the model version: 17, 19 or 21 values select FSRS-6
+   *   (17 and 19 are expanded to 21), 34 values select FSRS-7.
    */
   constructor(parameters?: Array<number> | undefined | null)
-  /** Calculate appropriate parameters for the provided review history. */
-  computeParameters(trainSet: Array<FSRSItem>, options?: ComputeParametersOption): Promise<Array<number>>
+  /** The model version selected by the parameters passed to the constructor. */
+  get version(): ModelVersion
   /**
    * The intervals and memory states for each answer button.
+   *
+   * `daysElapsed` may be fractional. FSRS-7 uses fractional days, while FSRS-6 rounds them to
+   * whole days.
    *
    * Parameters must have been provided when calling [`new FSRS()`]{@link constructor}.
    */
   nextStates(currentMemoryState: MemoryState | undefined | null, desiredRetention: number, daysElapsed: number): NextStates
+  /** For FSRS-7, the fast stability is assumed to equal `stability`. */
   nextInterval(stability: number | undefined | null, desiredRetention: number, rating: number): number
-  benchmark(trainSet: Array<FSRSItem>, options?: ComputeParametersOption): Array<number>
   /**
    * Determine how well the model and parameters predict performance.
    *
@@ -111,11 +148,15 @@ export declare class FSRS {
   historicalMemoryStateBatch(items: Array<FSRSItem>, startingStates?: Array<MemoryState | null | undefined>): Array<Array<MemoryState>>
 }
 export declare class FSRSReview {
+  /**
+   * `deltaT` may be fractional. FSRS-7 uses fractional days, while FSRS-6 rounds them to
+   * whole days when updating memory states and when training.
+   */
   constructor(rating: number, deltaT: number)
   /** 1-4 */
   get rating(): number
   /**
-   * The number of days that passed
+   * The number of days that passed (can be fractional)
    * # Warning
    * `delta_t` for item first(initial) review must be 0
    */
@@ -138,9 +179,12 @@ export declare class FSRSItem {
   toJSON(): string
 }
 export declare class MemoryState {
-  constructor(stability: number, difficulty: number)
+  /** `stabilityFast` is only used by FSRS-7 and defaults to `stability`. */
+  constructor(stability: number, difficulty: number, stabilityFast?: number | undefined | null)
   get stability(): number
   get difficulty(): number
+  /** The FSRS-7 fast stability. FSRS-6 ignores it and returns states where it equals `stability`. */
+  get stabilityFast(): number
   toJSON(): string
 }
 export declare class NextStates {

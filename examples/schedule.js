@@ -17,7 +17,9 @@ function scheduleNewCard() {
   const desiredRetention = 0.9
 
   // Create a new FSRS model
+  // DEFAULT_PARAMETERS are the FSRS-7 defaults; pass FSRS6_DEFAULT_PARAMETERS to use FSRS-6.
   const fsrs = new FSRS(DEFAULT_PARAMETERS)
+  console.log(`Model version: ${fsrs.version}`)
 
   // Get next states for a new card
   const nextStates = fsrs.nextStates(card.memoryState, desiredRetention, 0)

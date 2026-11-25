@@ -33,6 +33,9 @@
   ],
   "napi": {
     "name": "fsrs-rs-nodejs",
+    "ts": {
+      "constEnum": false
+    },
     "triples": {
       "defaults": true,
       "additional": [
