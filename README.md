@@ -17,6 +17,70 @@ find examples/ -exec node {} \;
 Note: running `examples/train_csv.js` requires `revlog.csv` file, please download from
 [revlog.csv](https://github.com/open-spaced-repetition/fsrs-rs/files/15046782/revlog.csv). Then put it in the root folder of this repository.
 
+## FSRS-6 and FSRS-7
+
+Since fsrs-rs 7, the binding supports two model versions. The number of parameters passed to `new FSRS()` selects the
+version, and `fsrs.version` reports it as a `ModelVersion` (`'FSRS-6'` or `'FSRS-7'`):
+
+| Parameters                         | Model  |
+| ---------------------------------- | ------ |
+| omitted, `null` or `[]`            | FSRS-7 |
+| 34 values                          | FSRS-7 |
+| 21 values (17 and 19 are expanded) | FSRS-6 |
+
+The default parameters of both versions are exported, with the same values as fsrs-rs:
+
+- `DEFAULT_PARAMETERS`: the FSRS-7 defaults (34 values), the same as `fsrs::DEFAULT_PARAMETERS`.
+- `FSRS7_DEFAULT_PARAMETERS`: an alias of `DEFAULT_PARAMETERS`.
+- `FSRS6_DEFAULT_PARAMETERS`: the FSRS-6 defaults (21 values), the same as `fsrs::FSRS6_DEFAULT_PARAMETERS`.
+
+```js
+import { FSRS, FSRS6_DEFAULT_PARAMETERS, MemoryState, ModelVersion, computeParameters } from 'fsrs-rs-nodejs'
+
+const fsrs7 = new FSRS() // FSRS-7 defaults
+const fsrs6 = new FSRS(FSRS6_DEFAULT_PARAMETERS)
+console.log(fsrs7.version, fsrs6.version) // 'FSRS-7' 'FSRS-6'
+
+// FSRS-7 tracks a fast stability next to the stability. It defaults to `stability`,
+// so `new MemoryState(stability, difficulty)` keeps working.
+const state = new MemoryState(10, 5, 8)
+console.log(state.stabilityFast) // 8
+
+// FSRS-7 accepts fractional elapsed days; FSRS-6 rounds them to whole days.
+fsrs7.nextStates(state, 0.9, 2.5)
+fsrs6.nextStates(state, 0.9, 2.5) // same as 3 days
+
+// Training is a top-level function. It defaults to FSRS-7 (34 parameters);
+// select FSRS-6 to get 21 parameters.
+const fsrs7Parameters = await computeParameters(trainSet)
+const fsrs6Parameters = await computeParameters(trainSet, { modelVersion: ModelVersion.Fsrs6 })
+```
+
+- `FSRSReview` accepts a fractional `deltaT`. FSRS-6 rounds it to whole days when updating memory states and when
+  training.
+- `computeParameters`, `benchmark` and `evaluateWithTimeSeriesSplits` take `modelVersion` (`ModelVersion` or
+  `'FSRS-6'` / `'FSRS-7'`, default FSRS-7, like fsrs-rs) and `enableSchedPenalties` (FSRS-7 only, default `false`).
+  All three are top-level functions, independent of any `FSRS` instance.
+- `enableShortTerm` defaults to `true` and only applies to FSRS-6. FSRS-7 always enables short-term memory and ignores
+  `enableShortTerm: false`, because it has no pre-training and would keep the default initial stability otherwise.
+- Without a `trainingConfig`, FSRS-6 training keeps the fsrs-rs 6 hyperparameters (5 epochs, learning rate 0.04).
+  In a `trainingConfig`, `numEpochs` and `learningRate` of 0 (the default) use the model version's defaults.
+- `nextInterval(stability, ...)` assumes for FSRS-7 that the fast stability equals `stability`.
+
+### Breaking changes in the fsrs-rs 7 upgrade
+
+- `DEFAULT_PARAMETERS` now holds the 34 FSRS-7 defaults instead of the 21 FSRS-6 defaults. Use
+  `FSRS6_DEFAULT_PARAMETERS` for the previous values.
+- `new FSRS()`, `new FSRS([])` and `checkAndFillParameters([])` now use the FSRS-7 defaults.
+- The `FSRS#computeParameters` and `FSRS#benchmark` instance methods are removed in favour of the top-level
+  `computeParameters` and `benchmark` functions: `new FSRS().computeParameters(x, o)` becomes `computeParameters(x, o)`.
+- `computeParameters`, `benchmark` and `evaluateWithTimeSeriesSplits` now train FSRS-7 by default, so
+  `computeParameters` returns 34 parameters. Pass `modelVersion: ModelVersion.Fsrs6` for the previous behaviour.
+- With FSRS-6 parameters, `nextStates` now rounds a fractional `daysElapsed` instead of truncating it. Integer values
+  give the same results as before.
+- The `toJSON()` strings of `MemoryState`, `ItemState` and `NextStates` include `stability_fast`, and the one of
+  `FSRSReview` prints `delta_t` as a float.
+
 ---
 
 # `@napi-rs/package-template`

@@ -13,6 +13,8 @@ pub struct ProgressData {
 pub struct ComputeParametersTask {
   // Training data, made owned so it doesn't reference `&self`
   pub(crate) enable_short_term: bool,
+  pub(crate) enable_sched_penalties: bool,
+  pub(crate) model_version: fsrs::ComputeParametersVersion,
   pub(crate) num_relearning_steps: Option<usize>,
   pub(crate) training_config: Option<fsrs::TrainingConfig>,
   pub(crate) card_ids: Option<Vec<i64>>,
@@ -37,6 +39,8 @@ impl Task for ComputeParametersTask {
     let train_data = self.train_data.clone();
     let card_ids = self.card_ids.clone();
     let enable_short_term = self.enable_short_term;
+    let enable_sched_penalties = self.enable_sched_penalties;
+    let model_version = self.model_version;
     let num_relearning_steps = self.num_relearning_steps;
     let training_config = self.training_config;
 
@@ -48,6 +52,8 @@ impl Task for ComputeParametersTask {
         card_ids,
         progress: Some(progress_state_for_thread),
         enable_short_term,
+        enable_sched_penalties,
+        model_version,
         num_relearning_steps,
         training_config,
       })
@@ -83,7 +89,9 @@ impl Task for ComputeParametersTask {
           eprintln!("Failed to call JS callback, status = {status:?}");
         }
 
-        if finished || percent >= 100.0 {
+        // Some fsrs errors return before marking the progress as finished, so also stop
+        // polling once the compute thread has exited.
+        if finished || percent >= 100.0 || handle.is_finished() {
           break;
         }
 

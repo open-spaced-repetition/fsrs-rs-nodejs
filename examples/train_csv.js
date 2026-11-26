@@ -1,13 +1,13 @@
 import { promises as fs } from 'fs'
 import { parseString } from '@fast-csv/parse'
-import { FSRSItem, FSRSReview, FSRS } from '../index.js'
+import { FSRSItem, FSRSReview, FSRS, ModelVersion, computeParameters } from '../index.js'
 
-function progress(enableShortTerm, err, progressValue) {
+function progress(modelVersion, err, progressValue) {
   if (err) {
-    console.error(`[enableShortTerm=${enableShortTerm}] Progress callback error:`, err)
+    console.error(`[${modelVersion}] Progress callback error:`, err)
     return
   }
-  console.log(`[enableShortTerm=${enableShortTerm}] progress value`, progressValue)
+  console.log(`[${modelVersion}] progress value`, progressValue)
 }
 
 async function main() {
@@ -42,22 +42,21 @@ async function main() {
     .map((item) => item[1])
   console.log(`fsrs_items.len() = ${fsrsItems.length}`)
 
-  async function computeParametersWrapper(enableShortTerm) {
-    // create FSRS instance and optimize
-    const fsrs = new FSRS(null)
-    const optimizedParameters = await fsrs.computeParameters(fsrsItems, {
-      enableShortTerm,
+  async function computeParametersWrapper(modelVersion) {
+    // optimize the parameters of the given model version
+    const optimizedParameters = await computeParameters(fsrsItems, {
+      modelVersion,
       numRelearningSteps: 1,
-      progress: progress.bind(null, enableShortTerm),
+      progress: progress.bind(null, modelVersion),
       timeout: 1000 /** 1s */,
     })
-    console.log(`[enableShortTerm=${enableShortTerm}]optimized parameters:`, optimizedParameters)
+    console.log(`[${modelVersion}]optimized parameters:`, optimizedParameters)
     const model = new FSRS(optimizedParameters)
 
     const metrics = model.evaluate(fsrsItems)
-    console.log(`[enableShortTerm=${enableShortTerm}]metrics:`, metrics)
+    console.log(`[${modelVersion}]metrics:`, metrics)
   }
-  await Promise.all([computeParametersWrapper(true), computeParametersWrapper(false)])
+  await Promise.all([computeParametersWrapper(ModelVersion.Fsrs7), computeParametersWrapper(ModelVersion.Fsrs6)])
 
   console.timeEnd('full training time')
 }

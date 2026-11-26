@@ -1,6 +1,6 @@
 {
   "name": "fsrs-rs-nodejs",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "nodejs binding for fsrs-rs",
   "main": "index.cjs",
   "module": "index.js",
@@ -33,6 +33,9 @@
   ],
   "napi": {
     "name": "fsrs-rs-nodejs",
+    "ts": {
+      "constEnum": false
+    },
     "triples": {
       "defaults": true,
       "additional": [

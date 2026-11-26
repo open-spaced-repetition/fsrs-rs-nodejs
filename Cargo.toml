@@ -2,8 +2,8 @@
 authors      = ["AsukaMinato <i at asukaminato dot eu dot org>"]
 edition      = "2024"
 name         = "fsrs-rs-nodejs"
-rust-version = "1.96.0"
-version      = "0.9.1"
+rust-version = "1.100.0"
+version      = "0.10.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,7 +11,7 @@ version      = "0.9.1"
 crate-type = ["cdylib"]
 
 [dependencies.fsrs]
-version = "6.6.0"
+version = "7.0.0"
 # path = "../fsrs-rs"
 # git = "https://github.com/open-spaced-repetition/fsrs-rs.git"
 # https://github.com/open-spaced-repetition/fsrs-rs/pull/326
